@@ -2,7 +2,7 @@ import { Box } from '@mui/material'
 import React, { useEffect, useState, useRef } from 'react'
 import ArticleItem from './ArticleItem'
 import { styles } from './styles'
-import { Article, articlesApi } from '@/popup/services/articlesApi'
+import { Article, articlesApi } from '@/services/articlesApi'
 
 const Articles = () => {
   const [articles, setArticles] = useState<Article[]>([])

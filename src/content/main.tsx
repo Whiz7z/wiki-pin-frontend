@@ -1,7 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './views/App.tsx'
-import styles from './views/App.css?inline'
 
 console.log('[CRXJS] Hello world from content script!')
 
@@ -14,9 +13,9 @@ document.body.appendChild(host)
 const shadowRoot = host.attachShadow({ mode: 'open' })
 
 // Inject styles into shadow DOM
-const styleElement = document.createElement('style')
-styleElement.textContent = styles
-shadowRoot.appendChild(styleElement)
+// const styleElement = document.createElement('style')
+// styleElement.textContent = styles
+// shadowRoot.appendChild(styleElement)
 
 // Create container for React app inside shadow DOM
 const container = document.createElement('div')

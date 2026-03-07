@@ -14,7 +14,7 @@ import React, { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { authApi } from '@/popup/services/authApi'
+import { authApi } from '@/services/authApi'
 import { styles } from './styles'
 
 type TabValue = 'login' | 'register'

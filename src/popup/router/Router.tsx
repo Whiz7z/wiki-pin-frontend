@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useRouter } from './RouterContext'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../../hooks/useAuth'
 import { routes, getRouteByName } from './routes'
 import { CircularProgress, Box } from '@mui/material'
 

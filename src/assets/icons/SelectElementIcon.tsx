@@ -1,8 +1,8 @@
 import React from 'react'
 
-const SelectElementIcon = ({ size = 16 }: { size?: number }) => {
+const SelectElementIcon = ({ size = 16, color = '#000000' }: { size?: number, color?: string }) => {
   return (
-    <svg fill="#000000" height={size} width={size} version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink"
+    <svg fill={color} height={size} width={size} version="1.1" xmlns="http://www.w3.org/2000/svg" xmlnsXlink="http://www.w3.org/1999/xlink"
       viewBox="0 0 24 24" xmlSpace="preserve">
       <g id="select">
         <path d="M14.8,24l-3.3-4.3l-3.2,4.2L5.8,6.9l16,7.2L16.4,16l3.2,4.3L14.8,24z M11.6,16.4l3.6,4.8l1.6-1.3L13.1,15l3.3-1.1l-8.1-3.6
