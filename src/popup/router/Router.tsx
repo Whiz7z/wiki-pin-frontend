@@ -1,12 +1,13 @@
 import { useEffect } from 'react'
 import { useRouter } from './RouterContext'
-import { useAuth } from '../../hooks/useAuth'
 import { routes, getRouteByName } from './routes'
 import { CircularProgress, Box } from '@mui/material'
+import { useAuthStore } from '@/stores'
+import { useAuth } from '@/hooks/useAuth'
 
 export const Router = () => {
   const { currentRoute, navigate } = useRouter()
-  const { isAuthenticated, isLoading } = useAuth()
+  const { accessToken, isLoading } = useAuth()
 
   // Handle route guards and redirects
   useEffect(() => {
@@ -19,17 +20,17 @@ export const Router = () => {
     }
 
     // Redirect if route requires auth but user is not authenticated
-    if (route.requiresAuth && !isAuthenticated) {
+    if (route.requiresAuth && !accessToken) {
       navigate('auth', { replace: true })
       return
     }
 
     // Redirect if route should redirect authenticated users (e.g., auth page)
-    if (route.redirectIfAuthenticated && isAuthenticated) {
+    if (route.redirectIfAuthenticated && accessToken) {
       navigate('main', { replace: true })
       return
     }
-  }, [currentRoute, isAuthenticated, isLoading, navigate])
+  }, [currentRoute, accessToken, isLoading, navigate])
 
   if (isLoading) {
     return (

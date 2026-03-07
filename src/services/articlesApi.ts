@@ -1,9 +1,17 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
+import { apiRequest } from './api'
 
-export interface CreateArticleRequest {
-  url: string
-  title: string
-  language: string
+// Types
+export interface User {
+  id: number
+  email: string
+  name: string | null
+}
+
+export interface ArticleUser {
+  id: number
+  email: string
+  name: string | null
+  associatedAt: string
 }
 
 export interface Article {
@@ -13,51 +21,120 @@ export interface Article {
   language: string
   createdAt: string
   updatedAt: string
-  _count: {
+  _count?: {
     pins: number
+    users: number
   }
+  users?: Array<{
+    user: User
+    createdAt: string
+  }>
+}
+
+export interface CreateArticleRequest {
+  url: string
+  title: string
+  language?: string
+}
+
+export interface UpdateArticleRequest {
+  title?: string
+  language?: string
+}
+
+export interface GetArticlesParams {
+  language?: string
+  limit?: number
+  offset?: number
 }
 
 export const articlesApi = {
-  getArticles: async (): Promise<Article[]> => {
-    const response = await fetch(`${API_BASE_URL}/api/articles`)
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Get articles failed' }))
-      throw new Error(error.message || 'Get articles failed')
-    }
-    return response.json()
-  },
-  getArticle: async (id: string): Promise<Article> => {
-    const response = await fetch(`${API_BASE_URL}/api/articles/${id}`)
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Get article failed' }))
-      throw new Error(error.message || 'Get article failed')
-    }
-    return response.json()
-  },
-  createArticle: async (article: CreateArticleRequest) => {
-    const response = await fetch(`${API_BASE_URL}/api/articles`, {
-      method: 'POST',
-      body: JSON.stringify(article),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Create article failed' }))
-      throw new Error(error.message || 'Create article failed')
-    }
-    return response.json()
+  /**
+   * Get all articles with optional filters
+   */
+  getAll: async (params?: GetArticlesParams): Promise<Article[]> => {
+    const queryParams = new URLSearchParams()
+    if (params?.language) queryParams.append('language', params.language)
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    
+    const query = queryParams.toString()
+    return apiRequest<Article[]>(`/api/articles${query ? `?${query}` : ''}`)
   },
 
-  deleteArticle: async (id: string) => {
-    const response = await fetch(`${API_BASE_URL}/api/articles/${id}`, {
+  /**
+   * Get article by ID
+   */
+  getById: async (id: string): Promise<Article> => {
+    return apiRequest<Article>(`/api/articles/${id}`)
+  },
+
+  /**
+   * Get article by URL (URL should be encoded)
+   */
+  getByUrl: async (url: string): Promise<Article> => {
+    const encodedUrl = encodeURIComponent(url)
+    return apiRequest<Article>(`/api/articles/url/${encodedUrl}`)
+  },
+
+  /**
+   * Get all articles for a specific user
+   */
+  getByUser: async (userId: number): Promise<Article[]> => {
+    return apiRequest<Article[]>(`/api/articles/user/${userId}`)
+  },
+
+  /**
+   * Get all users associated with an article
+   */
+  getUsers: async (articleId: string): Promise<ArticleUser[]> => {
+    return apiRequest<ArticleUser[]>(`/api/articles/${articleId}/users`)
+  },
+
+  /**
+   * Create a new article (requires authentication)
+   */
+  create: async (article: CreateArticleRequest): Promise<Article> => {
+    return apiRequest<Article>('/api/articles', {
+      method: 'POST',
+      body: JSON.stringify(article),
+    })
+  },
+
+  /**
+   * Update an article (requires authentication)
+   */
+  update: async (id: string, updates: UpdateArticleRequest): Promise<Article> => {
+    return apiRequest<Article>(`/api/articles/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    })
+  },
+
+  /**
+   * Delete an article (requires authentication)
+   */
+  delete: async (id: string): Promise<{ message: string }> => {
+    return apiRequest<{ message: string }>(`/api/articles/${id}`, {
       method: 'DELETE',
     })
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Delete article failed' }))
-      throw new Error(error.message || 'Delete article failed')
-    }
-    return response.json()
+  },
+
+  /**
+   * Associate current user with an article (requires authentication)
+   */
+  associate: async (articleId: string): Promise<{ message: string }> => {
+    return apiRequest<{ message: string }>(`/api/articles/${articleId}/associate`, {
+      method: 'POST',
+    })
+  },
+
+  /**
+   * Remove current user's association with an article (requires authentication)
+   */
+  disassociate: async (articleId: string): Promise<{ message: string }> => {
+    return apiRequest<{ message: string }>(`/api/articles/${articleId}/associate`, {
+      method: 'DELETE',
+    })
   },
 }

@@ -3,7 +3,8 @@ import { Box, Button, TextField, Typography } from '@mui/material'
 import React, { useState, useRef, useEffect } from 'react'
 import { styles } from './styles'
 import selectionStyles from '../../shadow-styles/selection.css?inline'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuthStore } from '@/stores'
+import { useAuthStoreContent } from '@/hooks/useAuthStoreContent'
 
 const STORAGE_KEY = 'wiki-pin-selected-element'
 const STORAGE_URL_KEY = 'wiki-pin-selected-url'
@@ -64,7 +65,8 @@ const NewPopup = () => {
   const outlineStyleRef = useRef<string | null>(null) // Store original outline style
   const clickHandlerRef = useRef<((e: MouseEvent) => void) | null>(null)
   const isRestoringRef = useRef(false)
-  const { user } = useAuth()
+  // // Use content script-safe hook that reads from chrome.storage
+  const { user, accessToken, isLoading } = useAuthStoreContent()
 
   const toggle = () => setEnableElementSelection((prev) => !prev)
 

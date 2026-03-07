@@ -10,11 +10,11 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { authApi } from '@/services/authApi'
+import { useAuthStore } from '@/stores'
 import { styles } from './styles'
 
 type TabValue = 'login' | 'register'
@@ -38,9 +38,10 @@ type RegisterFormData = z.infer<typeof registerSchema>
 
 const AuthPage = () => {
   const [tab, setTab] = useState<TabValue>('login')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  
+  // Use auth store for state management
+  const { login, register, isLoading, error, clearError } = useAuthStore()
 
   // Login form
   const {
@@ -73,9 +74,16 @@ const AuthPage = () => {
     },
   })
 
+  // Clear error when switching tabs
+  useEffect(() => {
+    if (error) {
+      clearError()
+    }
+  }, [tab, error, clearError])
+
   const handleTabChange = (_event: React.SyntheticEvent, newValue: TabValue) => {
     setTab(newValue)
-    setError(null)
+    clearError()
     setSuccess(null)
     // Reset forms when switching tabs
     resetLogin()
@@ -83,48 +91,32 @@ const AuthPage = () => {
   }
 
   const onLogin = async (data: LoginFormData) => {
-    setError(null)
     setSuccess(null)
-    setLoading(true)
+    clearError()
 
     try {
-      const response = await authApi.login(data)
-      // Store tokens
-      await chrome.storage.local.set({
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
-        user: response.user,
-      })
+      await login(data)
       setSuccess('Login successful!')
       resetLogin()
       // The App component will automatically show MainPage when auth state updates
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
-    } finally {
-      setLoading(false)
+      // Error is already set in the store and will be displayed
+      setSuccess(null)
     }
   }
 
   const onRegister = async (data: RegisterFormData) => {
-    setError(null)
     setSuccess(null)
-    setLoading(true)
+    clearError()
 
     try {
-      const response = await authApi.register(data)
-      // Store tokens
-      await chrome.storage.local.set({
-        accessToken: response.accessToken,
-        refreshToken: response.refreshToken,
-        user: response.user,
-      })
+      await register(data)
       setSuccess('Registration successful!')
       resetRegister()
       // The App component will automatically show MainPage when auth state updates
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed')
-    } finally {
-      setLoading(false)
+      // Error is already set in the store and will be displayed
+      setSuccess(null)
     }
   }
 
@@ -142,7 +134,7 @@ const AuthPage = () => {
           </Tabs>
 
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => clearError()}>
               {error}
             </Alert>
           )}
@@ -167,7 +159,7 @@ const AuthPage = () => {
                 error={!!loginErrors.email}
                 helperText={loginErrors.email?.message}
                 fullWidth
-                disabled={loading}
+                disabled={isLoading}
               />
 
               <TextField
@@ -177,17 +169,17 @@ const AuthPage = () => {
                 error={!!loginErrors.password}
                 helperText={loginErrors.password?.message}
                 fullWidth
-                disabled={loading}
+                disabled={isLoading}
               />
 
               <Button
                 type="submit"
                 variant="contained"
-                disabled={!isLoginValid || !isLoginDirty || loading}
+                disabled={!isLoginValid || !isLoginDirty || isLoading}
                 fullWidth
                 sx={{ mt: 2 }}
               >
-                {loading ? <CircularProgress size={24} /> : 'Login'}
+                {isLoading ? <CircularProgress size={24} /> : 'Login'}
               </Button>
             </Box>
           ) : (
@@ -203,7 +195,7 @@ const AuthPage = () => {
                 error={!!registerErrors.name}
                 helperText={registerErrors.name?.message}
                 fullWidth
-                disabled={loading}
+                disabled={isLoading}
               />
 
               <TextField
@@ -213,7 +205,7 @@ const AuthPage = () => {
                 error={!!registerErrors.email}
                 helperText={registerErrors.email?.message}
                 fullWidth
-                disabled={loading}
+                disabled={isLoading}
               />
 
               <TextField
@@ -223,17 +215,17 @@ const AuthPage = () => {
                 error={!!registerErrors.password}
                 helperText={registerErrors.password?.message}
                 fullWidth
-                disabled={loading}
+                disabled={isLoading}
               />
 
               <Button
                 type="submit"
                 variant="contained"
-                disabled={!isRegisterValid || !isRegisterDirty || loading}
+                disabled={!isRegisterValid || !isRegisterDirty || isLoading}
                 fullWidth
                 sx={{ mt: 2 }}
               >
-                {loading ? <CircularProgress size={24} /> : 'Register'}
+                {isLoading ? <CircularProgress size={24} /> : 'Register'}
               </Button>
             </Box>
           )}

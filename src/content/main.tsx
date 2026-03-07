@@ -22,9 +22,9 @@ const container = document.createElement('div')
 container.id = 'crxjs-app-container'
 shadowRoot.appendChild(container)
 
-// Render React app into shadow DOM
+// Render React app into shadow DOM with shadow root as prop
 createRoot(container).render(
   <StrictMode>
-    <App />
+    <App shadowRoot={shadowRoot} />
   </StrictMode>,
 )

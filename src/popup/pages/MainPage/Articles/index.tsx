@@ -3,40 +3,23 @@ import React, { useEffect, useState, useRef } from 'react'
 import ArticleItem from './ArticleItem'
 import { styles } from './styles'
 import { Article, articlesApi } from '@/services/articlesApi'
+import { useArticlesStore, useAuthStore } from '@/stores'
 
 const Articles = () => {
-  const [articles, setArticles] = useState<Article[]>([])
-  const isFetchingRef = useRef(false)
-
-  const fetchArticles = async () => {
-    // Set flag immediately to prevent concurrent fetches
-    isFetchingRef.current = true
-
-    try {
-      const articlesData = await articlesApi.getArticles()
-      setArticles(articlesData)
-    } catch (error) {
-      console.error('Error fetching articles:', error)
-    } finally {
-      // Reset flag after fetch completes
-      isFetchingRef.current = false
-    }
-  }
+  const { user } = useAuthStore()
+  const { articles, isLoading, error, fetchByUser } = useArticlesStore()
 
   useEffect(() => {
-    // Prevent duplicate fetches during the same mount cycle
-    if (isFetchingRef.current) {
-      console.log('fetchArticles already fetching')
-      return
+    if (user) {
+      fetchByUser(user.id)
     }
-    console.log('fetchArticles')
-
-    fetchArticles()
-  }, [isFetchingRef])
+  }, [user, fetchByUser])
 
   return (
     <Box sx={styles.root}>
-      <ArticleItem />
+      {articles.map((article) => (
+        <ArticleItem key={article.id} article={article} />
+      ))}
     </Box>
   )
 }

@@ -1,9 +1,11 @@
 import React from 'react'
+import { Article } from '@/services/articlesApi'
 
-const ArticleItem = () => {
+export default function ArticleItem({ article }: { article: Article }) {
   return (
-    <div>ArticleItem</div>
+    <div>
+      <h3>{article.title}</h3>
+      <p>{article.url}</p>
+    </div>
   )
 }
-
-export default ArticleItem
