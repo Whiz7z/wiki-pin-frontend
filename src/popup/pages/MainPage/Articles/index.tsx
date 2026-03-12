@@ -1,25 +1,39 @@
-import { Box } from '@mui/material'
+import { Box, Button, Divider, Stack } from '@mui/material'
 import React, { useEffect, useState, useRef } from 'react'
 import ArticleItem from './ArticleItem'
 import { styles } from './styles'
 import { Article, articlesApi } from '@/services/articlesApi'
 import { useArticlesStore, useAuthStore } from '@/stores'
+import { useRouter } from '@/popup/router'
+import { getCurrentTab } from '@/utils/tabUtils'
 
 const Articles = () => {
   const { user } = useAuthStore()
-  const { articles, isLoading, error, fetchByUser } = useArticlesStore()
+  const { articles, isLoading, error, fetchByUser, isArticlesInitialized } = useArticlesStore()
+  const { navigate } = useRouter()
+
+
+
 
   useEffect(() => {
-    if (user) {
-      fetchByUser(user.id)
+    if (!isArticlesInitialized) {
+      fetchByUser(user?.id || null)
     }
-  }, [user, fetchByUser])
+  }, [user, isArticlesInitialized])
 
   return (
     <Box sx={styles.root}>
-      {articles.map((article) => (
-        <ArticleItem key={article.id} article={article} />
-      ))}
+
+      <Button variant="contained" color="primary" fullWidth onClick={() => { navigate('create-article') }}>Create Article</Button>
+
+
+
+      <Divider sx={{ backgroundColor: 'primary.light', my: 1, height: '4px', width: '100%' }} />
+      <Stack spacing={2}>
+        {articles.map((article) => (
+          <ArticleItem key={article.id} article={article} />
+        ))}
+      </Stack>
     </Box>
   )
 }

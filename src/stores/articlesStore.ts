@@ -1,8 +1,11 @@
 import { create } from 'zustand'
 import { articlesApi, type Article, type CreateArticleRequest, type UpdateArticleRequest, type GetArticlesParams } from '../services/articlesApi'
+import { getAuthUser } from '@/services/api'
+import { User } from '@/services/authApi'
 
 interface ArticlesState {
   articles: Article[]
+  isArticlesInitialized: boolean
   currentArticle: Article | null
   isLoading: boolean
   error: string | null
@@ -11,7 +14,7 @@ interface ArticlesState {
   fetchAll: (params?: GetArticlesParams) => Promise<void>
   fetchById: (id: string) => Promise<void>
   fetchByUrl: (url: string) => Promise<void>
-  fetchByUser: (userId: number) => Promise<void>
+  fetchByUser: (userId: number | null) => Promise<void>
   create: (article: CreateArticleRequest) => Promise<Article>
   update: (id: string, updates: UpdateArticleRequest) => Promise<void>
   delete: (id: string) => Promise<void>
@@ -23,6 +26,7 @@ interface ArticlesState {
 
 export const useArticlesStore = create<ArticlesState>((set, get) => ({
   articles: [],
+  isArticlesInitialized: false,
   currentArticle: null,
   isLoading: false,
   error: null,
@@ -37,6 +41,8 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch articles',
       })
+    } finally {
+      set({ isArticlesInitialized: true })
     }
   },
 
@@ -58,6 +64,8 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch article',
       })
+    } finally {
+      set({ isArticlesInitialized: true })
     }
   },
 
@@ -82,19 +90,23 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch article',
       })
+    } finally {
+      set({ isArticlesInitialized: true })
     }
   },
 
-  fetchByUser: async (userId: number) => {
+  fetchByUser: async (userId: number | null) => {
     set({ isLoading: true, error: null })
     try {
-      const articles = await articlesApi.getByUser(userId)
+      const articles = await articlesApi.getByUser(userId || null)
       set({ articles, isLoading: false })
     } catch (error) {
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to fetch user articles',
       })
+    } finally {
+      set({ isLoading: false, isArticlesInitialized: true })
     }
   },
 
@@ -114,6 +126,12 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to create article',
       })
       throw error
+    } finally {
+      const user: User | null = await getAuthUser() as User | null
+      if (user) {
+        await get().fetchByUser(user.id)
+      }
+      set({ isLoading: false })
     }
   },
 

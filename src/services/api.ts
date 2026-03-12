@@ -1,4 +1,5 @@
 // Shared API utility with authentication token handling
+// Single source of truth: chrome.storage holds auth; store is synced from here.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
 export interface ApiError {
@@ -12,10 +13,35 @@ export interface ApiError {
 export async function getAccessToken(): Promise<string | null> {
   try {
     const result = await chrome.storage.local.get(['accessToken'])
-
     return result.accessToken as string | null
   } catch (error) {
     console.error('Error getting access token:', error)
+    return null
+  }
+}
+
+/**
+ * Get the stored refresh token from chrome storage
+ */
+export async function getRefreshToken(): Promise<string | null> {
+  try {
+    const result = await chrome.storage.local.get(['refreshToken'])
+    return result.refreshToken as string | null
+  } catch (error) {
+    console.error('Error getting refresh token:', error)
+    return null
+  }
+}
+
+/**
+ * Get the stored auth user from chrome storage
+ */
+export async function getAuthUser(): Promise<unknown | null> {
+  try {
+    const result = await chrome.storage.local.get(['authUser'])
+    return result.authUser ?? null
+  } catch (error) {
+    console.error('Error getting auth user:', error)
     return null
   }
 }
@@ -26,7 +52,6 @@ export async function getAccessToken(): Promise<string | null> {
 export async function setAccessToken(token: string): Promise<void> {
   try {
     await chrome.storage.local.set({ accessToken: token })
-    // Update store if available
     try {
       const { useAuthStore } = await import('../stores/authStore')
       useAuthStore.setState({ accessToken: token })
@@ -39,54 +64,66 @@ export async function setAccessToken(token: string): Promise<void> {
 }
 
 /**
- * Remove the access token from chrome storage and sync with store
+ * Set the refresh token in chrome storage (not stored in Zustand)
  */
-export async function removeAccessToken(): Promise<void> {
+export async function setRefreshToken(token: string): Promise<void> {
   try {
-    await chrome.storage.local.remove(['accessToken'])
-    // Update store if available
-    try {
-      const { useAuthStore } = await import('../stores/authStore')
-      useAuthStore.setState({ accessToken: null })
-    } catch {
-      // Store might not be available (e.g., in content scripts)
-    }
+    await chrome.storage.local.set({ refreshToken: token })
   } catch (error) {
-    console.error('Error removing access token:', error)
+    console.error('Error setting refresh token:', error)
   }
 }
 
 /**
- * Refresh the access token using refresh token
+ * Set the auth user in chrome storage and sync with store
+ */
+export async function setAuthUser(user: unknown): Promise<void> {
+  try {
+    await chrome.storage.local.set({ authUser: user })
+    try {
+      const { useAuthStore } = await import('../stores/authStore')
+      useAuthStore.setState({ user: user as import('../stores/authStore').AuthState['user'] })
+    } catch {
+      // Store might not be available (e.g., in content scripts)
+    }
+  } catch (error) {
+    console.error('Error setting auth user:', error)
+  }
+}
+
+/**
+ * Clear all auth data from storage and sync store (single place for logout state)
+ */
+export async function clearAuth(): Promise<void> {
+  try {
+    await chrome.storage.local.remove(['accessToken', 'refreshToken', 'authUser'])
+    try {
+      const { useAuthStore } = await import('../stores/authStore')
+      useAuthStore.setState({ accessToken: null, user: null })
+    } catch {
+      // Store might not be available
+    }
+  } catch (error) {
+    console.error('Error clearing auth:', error)
+  }
+}
+
+/**
+ * Refresh the access token using the stored refresh token
  */
 async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = await getRefreshToken()
+  if (!refreshToken) return null
+
   try {
-    const result = await chrome.storage.local.get(['refreshToken'])
-    const refreshToken = result.refreshToken as string | null
-
-    if (!refreshToken) {
-      return null
-    }
-
     const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
     })
 
     if (!response.ok) {
-      // Refresh token is invalid, clear all auth data
-      await removeAccessToken()
-      await chrome.storage.local.remove(['refreshToken', 'authUser'])
-      // Update store if available
-      try {
-        const { useAuthStore } = await import('../stores/authStore')
-        useAuthStore.getState().logout().catch(() => {})
-      } catch {
-        // Store might not be available
-      }
+      await clearAuth()
       return null
     }
 
@@ -95,28 +132,12 @@ async function refreshAccessToken(): Promise<string | null> {
 
     if (newAccessToken) {
       await setAccessToken(newAccessToken)
-      // Update store if available
-      try {
-        const { useAuthStore } = await import('../stores/authStore')
-        useAuthStore.setState({ accessToken: newAccessToken })
-      } catch {
-        // Store might not be available
-      }
       return newAccessToken
     }
-
     return null
   } catch (error) {
     console.error('Error refreshing token:', error)
-    await removeAccessToken()
-    await chrome.storage.local.remove(['refreshToken', 'authUser'])
-    // Update store if available
-    try {
-      const { useAuthStore } = await import('../stores/authStore')
-      useAuthStore.setState({ accessToken: null, user: null })
-    } catch {
-      // Store might not be available
-    }
+    await clearAuth()
     return null
   }
 }

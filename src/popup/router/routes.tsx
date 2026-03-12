@@ -1,6 +1,7 @@
 import { Route } from './types'
 import AuthPage from '../pages/AuthPage'
 import MainPage from '../pages/MainPage'
+import CreateArticlePage from '../pages/CreateArticlePage'
 
 export const routes: Route[] = [
   {
@@ -16,6 +17,12 @@ export const routes: Route[] = [
     component: MainPage,
     requiresAuth: true,
   },
+  {
+    name: 'create-article',
+    path: '/create-article',
+    component: CreateArticlePage,
+    requiresAuth: true,
+  },
 ]
 
 export const getRouteByName = (name: string): Route | undefined => {
@@ -24,6 +31,7 @@ export const getRouteByName = (name: string): Route | undefined => {
 
 export const getInitialRoute = (isAuthenticated: boolean): string => {
   if (isAuthenticated) {
+
     const mainRoute = routes.find((r) => r.name === 'main')
     return mainRoute?.name || 'auth'
   }

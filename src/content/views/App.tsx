@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { CacheProvider } from '@emotion/react'
 import createCache from '@emotion/cache'
-import { theme } from '../theme'
-import NewPopup from './components/NewPopup'
+import { theme } from '../../theme'
+import Toolbar from './components/Toolbar'
 
 interface AppProps {
   shadowRoot: ShadowRoot
@@ -31,7 +31,7 @@ function App({ shadowRoot }: AppProps) {
     <CacheProvider value={emotionCache}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <NewPopup />
+        <Toolbar />
       </ThemeProvider>
     </CacheProvider>
   )

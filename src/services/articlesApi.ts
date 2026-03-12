@@ -80,7 +80,7 @@ export const articlesApi = {
   /**
    * Get all articles for a specific user
    */
-  getByUser: async (userId: number): Promise<Article[]> => {
+  getByUser: async (userId: number | null): Promise<Article[]> => {
     return apiRequest<Article[]>(`/api/articles/user/${userId}`)
   },
 

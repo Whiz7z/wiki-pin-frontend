@@ -2,10 +2,9 @@
 
 export const styles = {
   root: {
+    width: '100%',
     display: 'flex',
     flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
     height: '100%',
   },
 }

@@ -2,13 +2,13 @@ import {
   Box,
   Card,
   CardContent,
-  TextField,
   Button,
   Typography,
   Tabs,
   Tab,
   Alert,
   CircularProgress,
+  Container,
 } from '@mui/material'
 import React, { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
@@ -16,6 +16,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuthStore } from '@/stores'
 import { styles } from './styles'
+import { StyledTextField } from '@/theme/components/StyledTextField'
 
 type TabValue = 'login' | 'register'
 
@@ -121,8 +122,8 @@ const AuthPage = () => {
   }
 
   return (
-    <Box sx={styles.root}>
-      <Card sx={{ width: '100%', maxWidth: 400 }}>
+    <Container sx={styles.root}>
+      <Card >
         <CardContent>
           <Typography variant="h5" component="h1" gutterBottom align="center">
             Wiki Pin
@@ -152,7 +153,7 @@ const AuthPage = () => {
               onSubmit={handleLoginSubmit(onLogin)}
               sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
             >
-              <TextField
+              <StyledTextField
                 label="Email"
                 type="email"
                 {...registerLogin('email')}
@@ -162,7 +163,7 @@ const AuthPage = () => {
                 disabled={isLoading}
               />
 
-              <TextField
+              <StyledTextField
                 label="Password"
                 type="password"
                 {...registerLogin('password')}
@@ -189,7 +190,7 @@ const AuthPage = () => {
               onSubmit={handleRegisterSubmit(onRegister)}
               sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
             >
-              <TextField
+                <StyledTextField
                 label="Name"
                 {...registerRegister('name')}
                 error={!!registerErrors.name}
@@ -198,7 +199,7 @@ const AuthPage = () => {
                 disabled={isLoading}
               />
 
-              <TextField
+                <StyledTextField
                 label="Email"
                 type="email"
                 {...registerRegister('email')}
@@ -208,7 +209,7 @@ const AuthPage = () => {
                 disabled={isLoading}
               />
 
-              <TextField
+                <StyledTextField
                 label="Password"
                 type="password"
                 {...registerRegister('password')}
@@ -231,7 +232,7 @@ const AuthPage = () => {
           )}
         </CardContent>
       </Card>
-    </Box>
+    </Container>
   )
 }
 

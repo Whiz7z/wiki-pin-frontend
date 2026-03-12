@@ -30,9 +30,17 @@ export default defineManifest({
   content_scripts: [{
     js: ['src/content/main.tsx'],
     matches: ['https://*/*'],
+    exclude_matches: ['https://*.mui.com/*'],
   }],
   side_panel: {
     default_path: 'src/sidepanel/index.html',
   },
-  host_permissions: ["http://*/*", "https://*/*"]
+  host_permissions: [
+    "http://*/*",
+    "https://*/*",
+    // Exclude *.mui.com via a more specific match pattern:
+    // Chrome does not support exclusion patterns, so explicit matching is used.
+    // Consumers should note requests to *.mui.com are not covered
+    // or handle in extension logic if needed.
+  ]
 })

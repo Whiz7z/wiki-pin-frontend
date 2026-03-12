@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { useRouter } from './RouterContext'
 import { routes, getRouteByName } from './routes'
 import { CircularProgress, Box } from '@mui/material'
-import { useAuthStore } from '@/stores'
 import { useAuth } from '@/hooks/useAuth'
 
 export const Router = () => {
@@ -36,10 +35,12 @@ export const Router = () => {
     return (
       <Box
         sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '200px',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '400px',
+            width: '500px',
+            backgroundColor: 'background.default',
         }}
       >
         <CircularProgress />

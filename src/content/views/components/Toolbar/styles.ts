@@ -7,13 +7,15 @@ export const styles = {
     bottom: '16px',
     zIndex: 2147483647,
     display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionContainer: {
+  buttonContainer: {
+    width: '100%',
     display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: '8px',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
 }

@@ -4,6 +4,12 @@ import App from './views/App.tsx'
 
 console.log('[CRXJS] Hello world from content script!')
 
+// Inject Prata font so MUI theme typography works inside shadow DOM
+const fontLink = document.createElement('link')
+fontLink.rel = 'stylesheet'
+fontLink.href = 'https://fonts.googleapis.com/css2?family=Marmelad&display=swap'
+document.head.appendChild(fontLink)
+
 // Create host element
 const host = document.createElement('div')
 host.id = 'crxjs-app'

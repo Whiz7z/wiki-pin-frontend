@@ -18,12 +18,12 @@ export const useAuth = () => {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const result = await chrome.storage.local.get(['accessToken', 'user'])
+        const result = await chrome.storage.local.get(['accessToken', 'authUser'])
         setAuthState({
           isAuthenticated: !!result.accessToken,
           isLoading: false,
           accessToken: result.accessToken as string | null,
-          user: result.user || null,
+          user: result.authUser || null,
         })
       } catch (error) {
         console.error('Error checking auth:', error)
@@ -44,7 +44,7 @@ export const useAuth = () => {
       areaName: string
     ) => {
       if (areaName === 'local') {
-        if (changes.accessToken || changes.user) {
+        if (changes.accessToken || changes.authUser) {
           checkAuth()
         }
       }
