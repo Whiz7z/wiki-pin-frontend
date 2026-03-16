@@ -1,0 +1,32 @@
+import { Theme } from '@mui/material'
+
+export const styles = {
+  container: (theme: Theme) => ({
+    flex: 1,
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+    position: 'relative',
+  }),
+  scrollContainer: (theme: Theme) => ({
+    width: '100%',
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: 0,
+    overflowY: 'auto',
+    scrollbarWidth: 'none',
+    msOverflowStyle: 'none',
+    gap: '8px',
+    '&::-webkit-scrollbar': {
+      display: 'none',
+    },
+  }),
+  loaderContainer: (theme: Theme) => ({
+    display: 'flex',
+    justifyContent: 'center',
+    py: 2,
+  }),
+}
+

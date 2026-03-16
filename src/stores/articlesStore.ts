@@ -2,9 +2,10 @@ import { create } from 'zustand'
 import { articlesApi, type Article, type CreateArticleRequest, type UpdateArticleRequest, type GetArticlesParams } from '../services/articlesApi'
 import { getAuthUser } from '@/services/api'
 import { User } from '@/services/authApi'
+import { emptyPaginationState, WithPagination } from './types'
 
 interface ArticlesState {
-  articles: Article[]
+  articles: WithPagination<Article[]>
   isArticlesInitialized: boolean
   currentArticle: Article | null
   isLoading: boolean
@@ -15,6 +16,8 @@ interface ArticlesState {
   fetchById: (id: string) => Promise<void>
   fetchByUrl: (url: string) => Promise<void>
   fetchByUser: (userId: number | null) => Promise<void>
+  /** Load next/previous page: fetches nextUrl, appends results, updates count/next/previous */
+  fetchNextPage: (nextUrl: string) => Promise<void>
   create: (article: CreateArticleRequest) => Promise<Article>
   update: (id: string, updates: UpdateArticleRequest) => Promise<void>
   delete: (id: string) => Promise<void>
@@ -22,15 +25,25 @@ interface ArticlesState {
   disassociate: (articleId: string) => Promise<void>
   clearError: () => void
   setCurrentArticle: (article: Article | null) => void
+  //getters
+  getArticles: () => Article[]
+  getNextUrl: () => string | null
+  getPreviousUrl: () => string | null
 }
 
 export const useArticlesStore = create<ArticlesState>((set, get) => ({
-  articles: [],
+  articles: emptyPaginationState as WithPagination<Article[]>,
   isArticlesInitialized: false,
   currentArticle: null,
   isLoading: false,
   error: null,
 
+  //getters
+  getArticles: () => get().articles.results,
+  getNextUrl: () => get().articles.next,
+  getPreviousUrl: () => get().articles.previous,
+
+  //actions
   fetchAll: async (params?: GetArticlesParams) => {
     set({ isLoading: true, error: null })
     try {
@@ -46,6 +59,27 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
     }
   },
 
+  fetchNextPage: async (nextUrl: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const page = await articlesApi.getPage(nextUrl)
+      set((state) => ({
+        articles: {
+          count: page.count,
+          next: page.next,
+          previous: page.previous,
+          results: [...state.articles.results, ...page.results],
+        },
+        isLoading: false,
+      }))
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch next page',
+      })
+    }
+  },
+
   fetchById: async (id: string) => {
     set({ isLoading: true, error: null })
     try {
@@ -54,10 +88,10 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
       
       // Update in articles list if exists
       const articles = get().articles
-      const index = articles.findIndex(a => a.id === id)
+      const index = articles.results.findIndex((a: Article) => a.id === id)
       if (index !== -1) {
-        articles[index] = article
-        set({ articles })
+        articles.results[index] = article
+        set({ articles: { ...articles, results: articles.results } })
       }
     } catch (error) {
       set({
@@ -77,13 +111,13 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
       
       // Update in articles list if exists
       const articles = get().articles
-      const index = articles.findIndex(a => a.id === article.id)
+      const index = articles.results.findIndex((a: Article) => a.id === article.id)
       if (index !== -1) {
-        articles[index] = article
+        articles.results[index] = article
         set({ articles })
       } else {
         // Add to list if not exists
-        set({ articles: [...articles, article] })
+        set({ articles: { ...articles, results: [...articles.results, article] } })
       }
     } catch (error) {
       set({
@@ -115,7 +149,7 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
     try {
       const newArticle = await articlesApi.create(article)
       set((state) => ({
-        articles: [newArticle, ...state.articles],
+        articles: { ...state.articles, results: [newArticle, ...state.articles.results] },
         currentArticle: newArticle,
         isLoading: false,
       }))
@@ -140,9 +174,9 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
     try {
       const updated = await articlesApi.update(id, updates)
       set((state) => {
-        const articles = state.articles.map(a => a.id === id ? updated : a)
+        const articles = { ...state.articles, results: state.articles.results.map((a: Article) => a.id === id ? updated : a) }
         const currentArticle = state.currentArticle?.id === id ? updated : state.currentArticle
-        return { articles, currentArticle, isLoading: false }
+        return { articles: { ...state.articles, results: articles.results }, currentArticle, isLoading: false }
       })
     } catch (error) {
       set({
@@ -158,7 +192,7 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
     try {
       await articlesApi.delete(id)
       set((state) => ({
-        articles: state.articles.filter(a => a.id !== id),
+        articles: { ...state.articles, results: state.articles.results.filter((a: Article) => a.id !== id) },
         currentArticle: state.currentArticle?.id === id ? null : state.currentArticle,
         isLoading: false,
       }))

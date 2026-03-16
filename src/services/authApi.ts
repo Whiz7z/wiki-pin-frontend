@@ -6,6 +6,8 @@ import {
   getRefreshToken,
   clearAuth,
   API_BASE_URL,
+  type ApiErrorBody,
+  getApiErrorMessage,
 } from './api'
 
 // Types
@@ -33,6 +35,12 @@ export interface AuthResponse {
   refreshToken: string
 }
 
+export interface AuthApiError {
+  status: number
+  message?: string
+  fieldErrors?: Record<string, string>
+}
+
 export interface RefreshTokenRequest {
   refreshToken: string
 }
@@ -42,28 +50,60 @@ export const authApi = {
    * Login user — persists tokens and user via api (single source of truth)
    */
   async login(data: LoginRequest): Promise<AuthResponse> {
-    const response = await apiRequest<AuthResponse>('/api/auth/login', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    await setAccessToken(response.accessToken)
-    await setRefreshToken(response.refreshToken)
-    await setAuthUser(response.user)
-    return response
+
+    const body = (await response
+      .json()
+      .catch(() => null)) as (AuthResponse & { errors?: Record<string, string> } & ApiErrorBody) | null
+
+    if (!response.ok) {
+      const apiBody: ApiErrorBody | null = body
+      const error: AuthApiError = {
+        status: response.status,
+        message: getApiErrorMessage(apiBody, 'Login failed'),
+        fieldErrors: body && 'errors' in body ? body.errors ?? undefined : undefined,
+      }
+      throw error
+    }
+
+    await setAccessToken(body!.accessToken)
+    await setRefreshToken(body!.refreshToken)
+    await setAuthUser(body!.user)
+    return body as AuthResponse
   },
 
   /**
    * Register new user — persists tokens and user via api (single source of truth)
    */
   async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await apiRequest<AuthResponse>('/api/auth/register', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     })
-    await setAccessToken(response.accessToken)
-    await setRefreshToken(response.refreshToken)
-    await setAuthUser(response.user)
-    return response
+
+    const body = (await response
+      .json()
+      .catch(() => null)) as (AuthResponse & { errors?: Record<string, string> } & ApiErrorBody) | null
+
+    if (!response.ok) {
+      const apiBody: ApiErrorBody | null = body
+      const error: AuthApiError = {
+        status: response.status,
+        message: getApiErrorMessage(apiBody, 'Registration failed'),
+        fieldErrors: body && 'errors' in body ? body.errors ?? undefined : undefined,
+      }
+      throw error
+    }
+
+    await setAccessToken(body!.accessToken)
+    await setRefreshToken(body!.refreshToken)
+    await setAuthUser(body!.user)
+    return body as AuthResponse
   },
 
   /**

@@ -1,4 +1,5 @@
-import { apiRequest } from './api'
+import { WithPagination } from '@/stores/types'
+import { apiRequest, apiRequestByUrl } from './api'
 
 // Types
 export interface User {
@@ -15,12 +16,11 @@ export interface Article {
 
 export interface Pin {
   id: string
+  title: string
   content: string
   selector: string
-  position: Record<string, unknown> | null
   articleId: string
   authorId: number
-  status: string
   createdAt: string
   updatedAt: string
   author?: User
@@ -31,41 +31,51 @@ export interface Pin {
 }
 
 export interface CreatePinRequest {
+  title: string
   content: string
   selector: string
-  position?: Record<string, unknown>
   articleId: string
 }
 
 export interface UpdatePinRequest {
+  title?: string
   content?: string
   selector?: string
-  position?: Record<string, unknown>
-  status?: string
 }
 
 export interface GetPinsParams {
   articleId?: string
   authorId?: number
-  status?: string
   limit?: number
   offset?: number
+}
+
+/** Thrown by apiRequest on validation error (body.errors); form can read fieldErrors for setError. Else apiRequest throws Error. */
+export interface PinApiError {
+  message?: string
+  fieldErrors?: Record<string, string>
 }
 
 export const pinsApi = {
   /**
    * Get all pins with optional filters
    */
-  getAll: async (params?: GetPinsParams): Promise<Pin[]> => {
+  getAll: async (params?: GetPinsParams): Promise<WithPagination<Pin[]>> => {
     const queryParams = new URLSearchParams()
     if (params?.articleId) queryParams.append('articleId', params.articleId)
     if (params?.authorId) queryParams.append('authorId', params.authorId.toString())
-    if (params?.status) queryParams.append('status', params.status)
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
     
     const query = queryParams.toString()
-    return apiRequest<Pin[]>(`/api/pins${query ? `?${query}` : ''}`)
+    return apiRequest<WithPagination<Pin[]>>(`/api/pins${query ? `?${query}` : ''}`)
+  },
+
+  /**
+   * Get a page of results using next/previous URL (for load-more).
+   */
+  getPage: async (nextUrl: string): Promise<WithPagination<Pin[]>> => {
+    return apiRequestByUrl<WithPagination<Pin[]>>(nextUrl)
   },
 
   /**
@@ -76,7 +86,9 @@ export const pinsApi = {
   },
 
   /**
-   * Create a new pin (requires authentication)
+   * Create a new pin (requires authentication).
+   * Uses apiRequest (auth + token refresh). On validation error apiRequest throws
+   * an object with message and fieldErrors for form setError.
    */
   create: async (pin: CreatePinRequest): Promise<Pin> => {
     return apiRequest<Pin>('/api/pins', {

@@ -9,10 +9,10 @@ import { getCurrentTab } from '@/utils/tabUtils'
 
 const Articles = () => {
   const { user } = useAuthStore()
-  const { articles, isLoading, error, fetchByUser, isArticlesInitialized } = useArticlesStore()
+  const { isLoading, error, fetchByUser, isArticlesInitialized, getArticles } = useArticlesStore()
   const { navigate } = useRouter()
 
-
+  const articles = getArticles()
 
 
   useEffect(() => {

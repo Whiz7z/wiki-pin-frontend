@@ -1,8 +1,9 @@
 import { create } from 'zustand'
 import { commentsApi, type Comment, type CreateCommentRequest, type UpdateCommentRequest, type GetCommentsParams } from '../services/commentsApi'
+import { emptyPaginationState, WithPagination } from './types'
 
 interface CommentsState {
-  comments: Comment[]
+  comments: WithPagination<Comment[]>
   currentComment: Comment | null
   isLoading: boolean
   error: string | null
@@ -10,16 +11,20 @@ interface CommentsState {
   // Actions
   fetchAll: (params?: GetCommentsParams) => Promise<void>
   fetchById: (id: string) => Promise<void>
-  fetchByPin: (pinId: string) => Promise<void>
+  fetchByPin: (pinId: string, params?: { limit?: number; offset?: number }) => Promise<void>
+  /** Load next/previous page: fetches nextUrl, appends results, updates count/next/previous */
+  fetchNextPage: (nextUrl: string) => Promise<void>
   create: (comment: CreateCommentRequest) => Promise<Comment>
   update: (id: string, updates: UpdateCommentRequest) => Promise<void>
   delete: (id: string) => Promise<void>
   clearError: () => void
   setCurrentComment: (comment: Comment | null) => void
+  getNextUrl: () => string | null
+  getPreviousUrl: () => string | null
 }
 
 export const useCommentsStore = create<CommentsState>((set, get) => ({
-  comments: [],
+  comments: emptyPaginationState as WithPagination<Comment[]>,
   currentComment: null,
   isLoading: false,
   error: null,
@@ -28,7 +33,7 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const comments = await commentsApi.getAll(params)
-      set({ comments, isLoading: false })
+      set({ comments: { ...comments, results: comments.results }, isLoading: false })
     } catch (error) {
       set({
         isLoading: false,
@@ -44,19 +49,9 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
       set({ currentComment: comment, isLoading: false })
       
       // Update in comments list if exists
-      const updateCommentInList = (comments: Comment[], targetId: string, updated: Comment): Comment[] => {
-        return comments.map(c => {
-          if (c.id === targetId) return updated
-          if (c.replies && c.replies.length > 0) {
-            return { ...c, replies: updateCommentInList(c.replies, targetId, updated) }
-          }
-          return c
-        })
-      }
-      
       const comments = get().comments
-      const updatedComments = updateCommentInList(comments, id, comment)
-      set({ comments: updatedComments })
+      const updatedComments = comments.results.map(c => (c.id === id ? comment : c))
+      set({ comments: { ...comments, results: updatedComments } })
     } catch (error) {
       set({
         isLoading: false,
@@ -65,11 +60,11 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
     }
   },
 
-  fetchByPin: async (pinId: string) => {
+  fetchByPin: async (pinId: string, params?: { limit?: number; offset?: number }) => {
     set({ isLoading: true, error: null })
     try {
-      const comments = await commentsApi.getByPin(pinId)
-      set({ comments, isLoading: false })
+      const comments = await commentsApi.getByPin(pinId, params)
+      set({ comments: { ...comments, results: comments.results }, isLoading: false })
     } catch (error) {
       set({
         isLoading: false,
@@ -78,36 +73,34 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
     }
   },
 
+  fetchNextPage: async (nextUrl: string) => {
+    set({ isLoading: true, error: null })
+    try {
+      const page = await commentsApi.getPage(nextUrl)
+      set((state) => ({
+        comments: {
+          count: page.count,
+          next: page.next,
+          previous: page.previous,
+          results: [...state.comments.results, ...page.results],
+        },
+        isLoading: false,
+      }))
+    } catch (error) {
+      set({
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Failed to fetch next page',
+      })
+    }
+  },
+
   create: async (comment: CreateCommentRequest) => {
     set({ isLoading: true, error: null })
     try {
       const newComment = await commentsApi.create(comment)
-      
-      // If it's a reply, add to parent's replies, otherwise add to top level
-      if (comment.parentId) {
-        const addReplyToParent = (comments: Comment[], parentId: string, reply: Comment): Comment[] => {
-          return comments.map(c => {
-            if (c.id === parentId) {
-              return { ...c, replies: [...(c.replies || []), reply] }
-            }
-            if (c.replies && c.replies.length > 0) {
-              return { ...c, replies: addReplyToParent(c.replies, parentId, reply) }
-            }
-            return c
-          })
-        }
-        
-        set((state) => ({
-          comments: addReplyToParent(state.comments, comment.parentId!, newComment),
-          isLoading: false,
-        }))
-      } else {
-        set((state) => ({
-          comments: [newComment, ...state.comments],
-          isLoading: false,
-        }))
-      }
-      
+      const state = get()
+      const limit = state.comments.results.length || 20
+      await get().fetchByPin(comment.pinId, { limit, offset: 0 })
       return newComment
     } catch (error) {
       set({
@@ -122,21 +115,11 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       const updated = await commentsApi.update(id, updates)
-      
-      const updateCommentInList = (comments: Comment[], targetId: string, updated: Comment): Comment[] => {
-        return comments.map(c => {
-          if (c.id === targetId) return updated
-          if (c.replies && c.replies.length > 0) {
-            return { ...c, replies: updateCommentInList(c.replies, targetId, updated) }
-          }
-          return c
-        })
-      }
-      
+
       set((state) => {
-        const comments = updateCommentInList(state.comments, id, updated)
+        const results = state.comments.results.map(c => (c.id === id ? updated : c))
         const currentComment = state.currentComment?.id === id ? updated : state.currentComment
-        return { comments, currentComment, isLoading: false }
+        return { comments: { ...state.comments, results }, currentComment, isLoading: false }
       })
     } catch (error) {
       set({
@@ -150,25 +133,22 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
   delete: async (id: string) => {
     set({ isLoading: true, error: null })
     try {
+      const state = get()
+      const comment = state.comments.results.find(c => c.id === id)
+      const pinId = comment?.pinId
+      const limit = state.comments.results.length
+
       await commentsApi.delete(id)
-      
-      // Remove from list (including nested replies)
-      const removeCommentFromList = (comments: Comment[], targetId: string): Comment[] => {
-        return comments
-          .filter(c => c.id !== targetId)
-          .map(c => {
-            if (c.replies && c.replies.length > 0) {
-              return { ...c, replies: removeCommentFromList(c.replies, targetId) }
-            }
-            return c
-          })
+
+      if (pinId) {
+        await get().fetchByPin(pinId, { limit: limit || 20, offset: 0 })
+      } else {
+        set((s) => ({
+          comments: { ...s.comments, results: s.comments.results.filter(c => c.id !== id) },
+          currentComment: s.currentComment?.id === id ? null : s.currentComment,
+          isLoading: false,
+        }))
       }
-      
-      set((state) => ({
-        comments: removeCommentFromList(state.comments, id),
-        currentComment: state.currentComment?.id === id ? null : state.currentComment,
-        isLoading: false,
-      }))
     } catch (error) {
       set({
         isLoading: false,
@@ -179,7 +159,10 @@ export const useCommentsStore = create<CommentsState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-  
+
+  getNextUrl: () => get().comments.next,
+  getPreviousUrl: () => get().comments.previous,
+
   setCurrentComment: (comment: Comment | null) => set({ currentComment: comment }),
 }))
 

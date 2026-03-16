@@ -1,6 +1,6 @@
 import { ReactNode } from 'react'
 
-export type RouteName = 'auth' | 'main' | string
+export type RouteName = 'auth' | 'main' | 'pin' | 'create-article' | string
 
 export interface Route {
   name: RouteName
@@ -13,7 +13,8 @@ export interface Route {
 
 export interface RouterContextType {
   currentRoute: RouteName
-  navigate: (route: RouteName, options?: { replace?: boolean }) => void
+  params: Record<string, string>
+  navigate: (route: RouteName, options?: { replace?: boolean; params?: Record<string, string> }) => void
   goBack: () => void
   history: RouteName[]
 }

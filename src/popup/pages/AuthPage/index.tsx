@@ -15,6 +15,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useAuthStore } from '@/stores'
+import type { AuthApiError } from '@/services/authApi'
 import { styles } from './styles'
 import { StyledTextField } from '@/theme/components/StyledTextField'
 
@@ -22,7 +23,7 @@ type TabValue = 'login' | 'register'
 
 // Login form schema
 const loginSchema = z.object({
-  email: z.email('Invalid email address'),
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 })
 
@@ -31,7 +32,7 @@ type LoginFormData = z.infer<typeof loginSchema>
 // Registration form schema
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
-  email: z.email('Invalid email address'),
+  email: z.string().min(1, 'Email is required').email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 })
 
@@ -48,8 +49,9 @@ const AuthPage = () => {
   const {
     register: registerLogin,
     handleSubmit: handleLoginSubmit,
-    formState: { errors: loginErrors, isValid: isLoginValid, isDirty: isLoginDirty ,},
+    formState: { errors: loginErrors, isValid: isLoginValid, isDirty: isLoginDirty },
     reset: resetLogin,
+    setError: setLoginError,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     mode: 'onBlur', // Validate only on blur
@@ -65,6 +67,7 @@ const AuthPage = () => {
     handleSubmit: handleRegisterSubmit,
     formState: { errors: registerErrors, isValid: isRegisterValid, isDirty: isRegisterDirty },
     reset: resetRegister,
+    setError: setRegisterError,
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     mode: 'onBlur', // Validate only on blur
@@ -91,6 +94,18 @@ const AuthPage = () => {
     resetRegister()
   }
 
+  const applyFieldErrors = (
+    fieldErrors: Record<string, string> | undefined,
+    setFieldError: (name: any, error: { type: string; message: string }) => void
+  ) => {
+    if (!fieldErrors) return
+    ;(Object.entries(fieldErrors) as [keyof LoginFormData | keyof RegisterFormData, string][]).forEach(
+      ([field, message]) => {
+        setFieldError(field, { type: 'server', message })
+      }
+    )
+  }
+
   const onLogin = async (data: LoginFormData) => {
     setSuccess(null)
     clearError()
@@ -99,9 +114,18 @@ const AuthPage = () => {
       await login(data)
       setSuccess('Login successful!')
       resetLogin()
-      // The App component will automatically show MainPage when auth state updates
     } catch (err) {
-      // Error is already set in the store and will be displayed
+      const e = err as AuthApiError | unknown
+      if (e && typeof e === 'object') {
+        const authErr = e as AuthApiError
+        if (authErr.fieldErrors && Object.keys(authErr.fieldErrors).length > 0) {
+          applyFieldErrors(authErr.fieldErrors, setLoginError as (name: keyof LoginFormData, error: { type: string; message: string }) => void)
+        } else if (authErr.message) {
+          // e.g. 401 "Invalid email or password" — highlight both fields
+          setLoginError('email', { type: 'server', message: authErr.message })
+          setLoginError('password', { type: 'server', message: authErr.message })
+        }
+      }
       setSuccess(null)
     }
   }
@@ -114,9 +138,17 @@ const AuthPage = () => {
       await register(data)
       setSuccess('Registration successful!')
       resetRegister()
-      // The App component will automatically show MainPage when auth state updates
     } catch (err) {
-      // Error is already set in the store and will be displayed
+      const e = err as AuthApiError | unknown
+      if (e && typeof e === 'object') {
+        const authErr = e as AuthApiError
+        if (authErr.fieldErrors && Object.keys(authErr.fieldErrors).length > 0) {
+          applyFieldErrors(authErr.fieldErrors, setRegisterError as (name: keyof RegisterFormData, error: { type: string; message: string }) => void)
+        } else if (authErr.message) {
+          // e.g. 409 "User with this email already exists" — highlight email
+          setRegisterError('email', { type: 'server', message: authErr.message })
+        }
+      }
       setSuccess(null)
     }
   }

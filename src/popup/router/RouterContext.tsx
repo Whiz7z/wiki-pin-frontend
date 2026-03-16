@@ -5,10 +5,12 @@ const RouterContext = createContext<RouterContextType | undefined>(undefined)
 
 export const RouterProvider = ({ children, initialRoute = 'auth' }: { children: ReactNode; initialRoute?: RouteName }) => {
   const [currentRoute, setCurrentRoute] = useState<RouteName>(initialRoute)
+  const [params, setParams] = useState<Record<string, string>>({})
   const [history, setHistory] = useState<RouteName[]>([initialRoute])
 
-  const navigate = useCallback((route: RouteName, options?: { replace?: boolean }) => {
+  const navigate = useCallback((route: RouteName, options?: { replace?: boolean; params?: Record<string, string> }) => {
     setCurrentRoute(route)
+    setParams(options?.params ?? {})
     if (options?.replace) {
       setHistory((prev) => {
         if (prev.length === 0) return [route]
@@ -33,7 +35,7 @@ export const RouterProvider = ({ children, initialRoute = 'auth' }: { children: 
   }, [])
 
   return (
-    <RouterContext.Provider value={{ currentRoute, navigate, goBack, history }}>
+    <RouterContext.Provider value={{ currentRoute, params, navigate, goBack, history }}>
       {children}
     </RouterContext.Provider>
   )

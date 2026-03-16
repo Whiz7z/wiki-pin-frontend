@@ -11,8 +11,26 @@ export const styles = {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  authInfo: {
+    width: '100%',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
   buttonContainer: {
     width: '100%',
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  highlightedPinActions: {
+    display: 'flex',
+    gap: '8px',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  navigatePinsContainer: {
     display: 'flex',
     gap: '8px',
     alignItems: 'center',

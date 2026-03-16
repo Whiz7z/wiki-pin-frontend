@@ -2,9 +2,27 @@
 // Single source of truth: chrome.storage holds auth; store is synced from here.
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'
 
-export interface ApiError {
-  message: string
+/** Standard API error body: backend sends { error: string } or { error, errors } for validation */
+export interface ApiErrorBody {
   error?: string
+  message?: string
+  errors?: Record<string, string>
+}
+
+/** Thrown by apiRequest when response has body.errors (validation error); form can use fieldErrors */
+export interface ApiValidationError {
+  message: string
+  fieldErrors: Record<string, string>
+}
+
+/**
+ * Extract a single error message from API error response body.
+ * Backend standard is { error: string }; we also support { message: string } for compatibility.
+ */
+export function getApiErrorMessage(body: ApiErrorBody | null, fallback: string): string {
+  if (!body || typeof body !== 'object') return fallback
+  const msg = body.error ?? body.message
+  return typeof msg === 'string' && msg.length > 0 ? msg : fallback
 }
 
 /**
@@ -178,19 +196,18 @@ export async function apiRequest<T>(
         headers,
       })
     } else {
-      // Token refresh failed, throw error
-      const error: ApiError = await response.json().catch(() => ({
-        message: 'Authentication failed. Please login again.',
-      }))
-      throw new Error(error.message || error.error || 'Authentication failed')
+      const body: ApiErrorBody = await response.json().catch(() => ({}))
+      throw new Error(getApiErrorMessage(body, 'Authentication failed. Please login again.'))
     }
   }
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      message: `Request failed: ${response.statusText}`,
-    }))
-    throw new Error(error.message || error.error || 'Request failed')
+    const body = (await response.json().catch(() => ({}))) as ApiErrorBody
+    const message = getApiErrorMessage(body, `Request failed: ${response.statusText}`)
+    if (body?.errors && typeof body.errors === 'object' && Object.keys(body.errors).length > 0) {
+      throw { message, fieldErrors: body.errors } as ApiValidationError
+    }
+    throw new Error(message)
   }
 
   // Handle empty responses
@@ -198,7 +215,52 @@ export async function apiRequest<T>(
   if (contentType && contentType.includes('application/json')) {
     return response.json()
   }
-  
+
+  return {} as T
+}
+
+/**
+ * Fetch a pagination URL (next/previous full URL) with auth. Use for load-more.
+ */
+export async function apiRequestByUrl<T>(
+  fullUrl: string,
+  retryOn401 = true
+): Promise<T> {
+  let token = await getAccessToken()
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  let response = await fetch(fullUrl, { headers })
+
+  if (response.status === 401 && retryOn401 && token) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      headers['Authorization'] = `Bearer ${newToken}`
+      response = await fetch(fullUrl, { headers })
+    } else {
+      const body: ApiErrorBody = await response.json().catch(() => ({}))
+      throw new Error(getApiErrorMessage(body, 'Authentication failed. Please login again.'))
+    }
+  }
+
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as ApiErrorBody
+    const message = getApiErrorMessage(body, `Request failed: ${response.statusText}`)
+    if (body?.errors && typeof body.errors === 'object' && Object.keys(body.errors).length > 0) {
+      throw { message, fieldErrors: body.errors } as ApiValidationError
+    }
+    throw new Error(message)
+  }
+
+  const contentType = response.headers.get('content-type')
+  if (contentType && contentType.includes('application/json')) {
+    return response.json()
+  }
   return {} as T
 }
 

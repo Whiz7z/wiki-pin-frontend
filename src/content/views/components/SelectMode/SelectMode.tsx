@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 
 export const STORAGE_KEY = 'wiki-pin-selected-element'
 export const STORAGE_URL_KEY = 'wiki-pin-selected-url'
-const HIGHLIGHT_OUTLINE = '2px solid red'
+const HIGHLIGHT_OUTLINE = '2px solid #8B3A3A'
 
 export function getXPath(element: Element): string {
   if (element.id) {
@@ -61,6 +61,7 @@ export function useElementSelection(enabled: boolean): UseElementSelectionResult
   const outlineStyleRef = useRef<string | null>(null)
   const clickHandlerRef = useRef<((e: MouseEvent) => void) | null>(null)
   const isRestoringRef = useRef(false)
+  const prevEnabledRef = useRef(enabled)
 
   const clearSelectedElement = () => {
     localStorage.removeItem(STORAGE_KEY)
@@ -118,7 +119,7 @@ export function useElementSelection(enabled: boolean): UseElementSelectionResult
         const element = findElementByXPath(savedXPath)
 
         if (element && element instanceof HTMLElement) {
-          const hasOutline = element.style.outline.includes('red')
+          const hasOutline = element.style.outline.includes('#8B3A3A')
           if (!hasOutline) {
             isRestoringRef.current = true
             outlineStyleRef.current = element.style.outline || ''
@@ -168,7 +169,7 @@ export function useElementSelection(enabled: boolean): UseElementSelectionResult
           target !== document.body &&
           target !== document.documentElement &&
           !target.shadowRoot &&
-          !(target instanceof HTMLElement && target.style.outline.includes('red'))
+          !(target instanceof HTMLElement && target.style.outline.includes('#8B3A3A'))
         ) {
           e.preventDefault()
           e.stopPropagation()
@@ -180,12 +181,19 @@ export function useElementSelection(enabled: boolean): UseElementSelectionResult
       document.body.addEventListener('click', handleClick, true)
     } else {
       document.body.style.cursor = 'default'
+      // When leaving select mode: remove outline, clear selection state, clear localStorage
+      if (prevEnabledRef.current) {
+        removeOutline()
+        clearSelectedElement()
+      }
+      prevEnabledRef.current = false
 
       if (clickHandlerRef.current) {
         document.body.removeEventListener('click', clickHandlerRef.current, true)
         clickHandlerRef.current = null
       }
     }
+    prevEnabledRef.current = enabled
   }, [enabled])
 
   return { isElementSelected, removeOutline, clearSelectedElement }

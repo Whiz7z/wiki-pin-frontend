@@ -2,6 +2,18 @@ import { create } from 'zustand'
 import { authApi, type User, type LoginRequest, type RegisterRequest } from '../services/authApi'
 import { getAccessToken, getAuthUser, setAuthUser, clearAuth } from '../services/api'
 
+/** Extract a user-facing message from an unknown thrown value (Error, API error, etc.) */
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message
+  if (typeof error === 'object' && error !== null && 'error' in error && typeof (error as { error: string }).error === 'string') {
+    return (error as { error: string }).error
+  }
+  if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message: string }).message === 'string') {
+    return (error as { message: string }).message
+  }
+  return fallback
+}
+
 export interface AuthState {
   user: User | null
   accessToken: string | null
@@ -79,7 +91,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       } catch (error) {
         set({
           isLoading: false,
-          error: error instanceof Error ? error.message : 'Login failed',
+          error: getErrorMessage(error, 'Login failed'),
         })
         throw error
       }
@@ -93,7 +105,7 @@ export const useAuthStore = create<AuthState>((set, get) => {
       } catch (error) {
         set({
           isLoading: false,
-          error: error instanceof Error ? error.message : 'Registration failed',
+          error: getErrorMessage(error, 'Registration failed'),
         })
         throw error
       }

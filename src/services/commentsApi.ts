@@ -1,4 +1,5 @@
-import { apiRequest } from './api'
+import { WithPagination } from '@/stores/types'
+import { apiRequest, apiRequestByUrl } from './api'
 
 // Types
 export interface User {
@@ -17,35 +18,24 @@ export interface Comment {
   content: string
   pinId: string
   authorId: number
-  parentId: string | null
-  status: string
   createdAt: string
   updatedAt: string
   author?: User
   pin?: Pin
-  parent?: Comment
-  replies?: Comment[]
-  _count?: {
-    replies: number
-  }
 }
 
 export interface CreateCommentRequest {
   content: string
   pinId: string
-  parentId?: string
 }
 
 export interface UpdateCommentRequest {
   content?: string
-  status?: string
 }
 
 export interface GetCommentsParams {
   pinId?: string
   authorId?: number
-  parentId?: string | null
-  status?: string
   limit?: number
   offset?: number
 }
@@ -54,19 +44,22 @@ export const commentsApi = {
   /**
    * Get all comments with optional filters
    */
-  getAll: async (params?: GetCommentsParams): Promise<Comment[]> => {
+  getAll: async (params?: GetCommentsParams): Promise<WithPagination<Comment[]>> => {
     const queryParams = new URLSearchParams()
     if (params?.pinId) queryParams.append('pinId', params.pinId)
     if (params?.authorId) queryParams.append('authorId', params.authorId.toString())
-    if (params?.parentId !== undefined) {
-      queryParams.append('parentId', params.parentId === null ? 'null' : params.parentId)
-    }
-    if (params?.status) queryParams.append('status', params.status)
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
     
     const query = queryParams.toString()
-    return apiRequest<Comment[]>(`/api/comments${query ? `?${query}` : ''}`)
+    return apiRequest<WithPagination<Comment[]>>(`/api/comments${query ? `?${query}` : ''}`)
+  },
+
+  /**
+   * Get a page of results using next/previous URL (for load-more).
+   */
+  getPage: async (nextUrl: string): Promise<WithPagination<Comment[]>> => {
+    return apiRequestByUrl<WithPagination<Comment[]>>(nextUrl)
   },
 
   /**
@@ -77,10 +70,14 @@ export const commentsApi = {
   },
 
   /**
-   * Get all comments for a specific pin with nested replies
+   * Get all comments for a specific pin (paginated)
    */
-  getByPin: async (pinId: string): Promise<Comment[]> => {
-    return apiRequest<Comment[]>(`/api/comments/pin/${pinId}`)
+  getByPin: async (pinId: string, params?: { limit?: number; offset?: number }): Promise<WithPagination<Comment[]>> => {
+    const queryParams = new URLSearchParams()
+    if (params?.limit) queryParams.append('limit', params.limit.toString())
+    if (params?.offset) queryParams.append('offset', params.offset.toString())
+    const query = queryParams.toString()
+    return apiRequest<WithPagination<Comment[]>>(`/api/comments/pin/${pinId}${query ? `?${query}` : ''}`)
   },
 
   /**
@@ -104,7 +101,7 @@ export const commentsApi = {
   },
 
   /**
-   * Delete a comment (soft delete, requires authentication, only author)
+   * Delete a comment (hard delete, requires authentication, only author)
    */
   delete: async (id: string): Promise<{ message: string }> => {
     return apiRequest<{ message: string }>(`/api/comments/${id}`, {

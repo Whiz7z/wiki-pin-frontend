@@ -2,6 +2,7 @@ import { Route } from './types'
 import AuthPage from '../pages/AuthPage'
 import MainPage from '../pages/MainPage'
 import CreateArticlePage from '../pages/CreateArticlePage'
+import PinPage from '../pages/PinPage'
 
 export const routes: Route[] = [
   {
@@ -15,6 +16,12 @@ export const routes: Route[] = [
     name: 'main',
     path: '/',
     component: MainPage,
+    requiresAuth: true,
+  },
+  {
+    name: 'pin',
+    path: '/pin',
+    component: PinPage,
     requiresAuth: true,
   },
   {
