@@ -19,7 +19,7 @@ export interface Article {
   id: string
   url: string
   title: string
-  language: string
+  userTitle?: string | null
   createdAt: string
   updatedAt: string
   _count?: {
@@ -162,6 +162,16 @@ export const articlesApi = {
   disassociate: async (articleId: string): Promise<{ message: string }> => {
     return apiRequest<{ message: string }>(`/api/articles/${articleId}/associate`, {
       method: 'DELETE',
+    })
+  },
+
+  /**
+   * Update current user's display title for an article (requires authentication)
+   */
+  updateUserTitle: async (articleId: string, userTitle: string | null): Promise<{ message: string; userTitle: string | null }> => {
+    return apiRequest<{ message: string; userTitle: string | null }>(`/api/articles/${articleId}/user-title`, {
+      method: 'PATCH',
+      body: JSON.stringify({ userTitle }),
     })
   },
 }

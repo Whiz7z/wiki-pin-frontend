@@ -21,6 +21,7 @@ interface ArticlesState {
   create: (article: CreateArticleRequest) => Promise<Article>
   update: (id: string, updates: UpdateArticleRequest) => Promise<void>
   delete: (id: string) => Promise<void>
+  updateUserTitle: (articleId: string, userTitle: string | null) => Promise<void>
   associate: (articleId: string) => Promise<void>
   disassociate: (articleId: string) => Promise<void>
   clearError: () => void
@@ -200,6 +201,29 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
       set({
         isLoading: false,
         error: error instanceof Error ? error.message : 'Failed to delete article',
+      })
+      throw error
+    }
+  },
+
+  updateUserTitle: async (articleId: string, userTitle: string | null) => {
+    try {
+      await articlesApi.updateUserTitle(articleId, userTitle)
+      set((state) => {
+        const results = state.articles.results.map((a) =>
+          a.id === articleId ? { ...a, userTitle } : a
+        )
+        return {
+          articles: { ...state.articles, results },
+          currentArticle:
+            state.currentArticle?.id === articleId
+              ? { ...state.currentArticle, userTitle }
+              : state.currentArticle,
+        }
+      })
+    } catch (error) {
+      set({
+        error: error instanceof Error ? error.message : 'Failed to update article title',
       })
       throw error
     }

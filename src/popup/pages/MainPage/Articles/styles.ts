@@ -7,4 +7,12 @@ export const styles = {
     flexDirection: 'column',
     height: '100%',
   },
+  articleList: {
+    maxHeight: 400,
+    overflowY: 'auto',
+    '&::-webkit-scrollbar': {
+      display: 'none',
+    },
+    scrollbarWidth: 'none',
+  },
 }
