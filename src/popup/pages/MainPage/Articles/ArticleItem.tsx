@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useCallback, useRef, useState } from 'react'
 import { Article } from '@/services/articlesApi'
 import {
   Accordion,
@@ -6,6 +6,7 @@ import {
   AccordionSummary,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -21,7 +22,7 @@ import EditIcon from '@mui/icons-material/Edit'
 import PushPinIcon from '@mui/icons-material/PushPin'
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
-import { useAuthStore, useArticlesStore } from '@/stores'
+import { useAuthStore, useArticlesStore, usePinsStore } from '@/stores'
 import { useRouter } from '@/popup/router'
 const styles = {
   root: {
@@ -103,11 +104,36 @@ export default function ArticleItem({
   const { user } = useAuthStore()
   const { navigate } = useRouter()
   const { delete: deleteArticle, updateUserTitle } = useArticlesStore()
+  const fetchPinsForArticle = usePinsStore((s) => s.fetchPinsForArticle)
+  const getPins = usePinsStore((s) => s.getPins)
+  const pinsLoadingByArticleId = usePinsStore((s) => s.pinsLoadingByArticleId)
+  const pinsErrorByArticleId = usePinsStore((s) => s.pinsErrorByArticleId)
+  const getPaginationForArticle = usePinsStore((s) => s.getPaginationForArticle)
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitleValue, setEditTitleValue] = useState('')
   const [isSavingTitle, setIsSavingTitle] = useState(false)
+  const [accordionExpanded, setAccordionExpanded] = useState(false)
+  const hasFetchedPinsRef = useRef(false)
+
+  const pinsForArticle = getPins(article.id)
+  const pinsLoading = pinsLoadingByArticleId[article.id] ?? false
+  const pinsError = pinsErrorByArticleId[article.id]
+  const pinPagination = getPaginationForArticle(article.id)
+  const pinCountLabel = article._count?.pins ?? pinPagination?.count ?? pinsForArticle.length
+
+  const handleAccordionChange = useCallback(
+    (_: React.SyntheticEvent, expanded: boolean) => {
+      setAccordionExpanded(expanded)
+      if (expanded && !hasFetchedPinsRef.current) {
+        hasFetchedPinsRef.current = true
+        void fetchPinsForArticle(article.id)
+      }
+    },
+    [article.id, fetchPinsForArticle],
+  )
 
   const displayTitle = article.userTitle ?? article.title
 
@@ -148,6 +174,9 @@ export default function ArticleItem({
       setIsDeleting(false)
     }
   }
+
+  const myPins = pinsForArticle.filter((pin) => pin.authorId === user?.id)
+  const otherPins = pinsForArticle.filter((pin) => pin.authorId !== user?.id)
 
   return (
     <Box sx={styles.root}>
@@ -198,71 +227,95 @@ export default function ArticleItem({
         </Box>
       </Box>
       <Box sx={styles.content}>
-        <Accordion sx={styles.accordion}>
-          <AccordionSummary >
+        <Accordion expanded={accordionExpanded} onChange={handleAccordionChange} sx={styles.accordion}>
+          <AccordionSummary>
             <Box sx={styles.accordionSummary}>
               <Typography variant="body1" title="Edit article">
-                ({article._count?.pins} pins)
+                ({pinCountLabel} pins)
               </Typography>
               <IconButton>
                 <ArrowDropDownIcon />
               </IconButton>
             </Box>
           </AccordionSummary>
-          <AccordionDetails >
+          <AccordionDetails>
             <Box sx={styles.detailsContainer}>
-              <Box sx={styles.pinListContainer}>
-                <Typography variant="body1" color="success">My pins</Typography>
-                <Box sx={styles.pinList}>
-                  {article.pins?.filter((pin) => pin.authorId === user?.id).map((pin) => (
-                    <Box key={pin.id}>
-                      <Typography
-                        variant="body1"
-                        component="button"
-                        onClick={() => navigate('pin', { params: { pinId: pin.id } })}
-                        sx={{
-                          background: 'none',
-                          border: 'none',
-                          padding: 0,
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          font: 'inherit',
-                          color: 'inherit',
-                          '&:hover': { textDecoration: 'underline' },
-                        }}
-                      >
-                        {pin.title}
-                      </Typography>
-                    </Box>
-                  ))}
+              {pinsLoading && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                  <CircularProgress size={24} />
                 </Box>
-              </Box>
-              <Box sx={styles.pinListContainer}>
-                <Typography variant="body1" color="error">Other pins</Typography>
-                <Box sx={styles.pinList}>
-                  {article.pins?.filter((pin) => pin.authorId !== user?.id).map((pin) => (
-                    <Box key={pin.id}>
-                      <Typography
-                        variant="body1"
-                        component="button"
-                        onClick={() => navigate('pin', { params: { pinId: pin.id } })}
-                        sx={{
-                          background: 'none',
-                          border: 'none',
-                          padding: 0,
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          font: 'inherit',
-                          color: 'inherit',
-                          '&:hover': { textDecoration: 'underline' },
-                        }}
-                      >
-                        {pin.title}
-                      </Typography>
+              )}
+              {pinsError && (
+                <Typography variant="body2" color="error">
+                  {pinsError}
+                </Typography>
+              )}
+              {!pinsLoading && !pinsError && pinCountLabel === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  No pins on this article yet.
+                </Typography>
+              )}
+              {!pinsLoading && !pinsError && pinCountLabel > 0 && pinsForArticle.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  No pins loaded (try reopening).
+                </Typography>
+              )}
+              {!pinsLoading && !pinsError && pinsForArticle.length > 0 && (
+                <>
+                  <Box sx={styles.pinListContainer}>
+                    <Typography variant="body1" color="success">My pins</Typography>
+                    <Box sx={styles.pinList}>
+                      {myPins.map((pin) => (
+                        <Box key={pin.id}>
+                          <Typography
+                            variant="body1"
+                            component="button"
+                            onClick={() => navigate('pin', { params: { pinId: pin.id } })}
+                            sx={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              font: 'inherit',
+                              color: 'inherit',
+                              '&:hover': { textDecoration: 'underline' },
+                            }}
+                          >
+                            {pin.title}
+                          </Typography>
+                        </Box>
+                      ))}
                     </Box>
-                  ))}
-                </Box>
-              </Box>
+                  </Box>
+                  <Box sx={styles.pinListContainer}>
+                    <Typography variant="body1" color="error">Other pins</Typography>
+                    <Box sx={styles.pinList}>
+                      {otherPins.map((pin) => (
+                        <Box key={pin.id}>
+                          <Typography
+                            variant="body1"
+                            component="button"
+                            onClick={() => navigate('pin', { params: { pinId: pin.id } })}
+                            sx={{
+                              background: 'none',
+                              border: 'none',
+                              padding: 0,
+                              cursor: 'pointer',
+                              textAlign: 'left',
+                              font: 'inherit',
+                              color: 'inherit',
+                              '&:hover': { textDecoration: 'underline' },
+                            }}
+                          >
+                            {pin.title}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                </>
+              )}
             </Box>
           </AccordionDetails>
         </Accordion>

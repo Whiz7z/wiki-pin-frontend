@@ -8,7 +8,7 @@ export const styles = {
     height: '100%',
   },
   articleList: {
-    maxHeight: 400,
+    maxHeight: '380px',
     overflowY: 'auto',
     '&::-webkit-scrollbar': {
       display: 'none',

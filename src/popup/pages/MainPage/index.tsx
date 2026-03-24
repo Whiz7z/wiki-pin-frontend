@@ -14,14 +14,13 @@ const MainPage = () => {
 
   return (
     <Container sx={styles.root}>
-      <Card>
-        <CardHeader title="Wiki Pin" action={<Button variant="text" color="error" onClick={() => { logout() }}>Log out</Button>} />
-      </Card>
+      
+        <CardHeader title="Wiki Pin" sx={styles.header} action={<Button variant="text" color="error" onClick={() => { logout() }} size='small'>Log out</Button>} />
       <Card>
         <CardContent>
-          <Tabs value={tab} onChange={handleTabChange} variant="fullWidth" sx={{ mb: 1 }}>
-            <Tab label="My Articles" value="my-articles" />
-            <Tab label="All Articles" value="all-articles" />
+          <Tabs value={tab} onChange={handleTabChange} variant="fullWidth" sx={styles.tabs}>
+            <Tab label="My Articles" value="my-articles" sx={styles.tab} />
+            <Tab label="All Articles" value="all-articles" sx={styles.tab} />
           </Tabs>
 
           <Articles type={tab} />

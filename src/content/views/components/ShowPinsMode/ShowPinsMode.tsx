@@ -17,6 +17,9 @@ import {
 } from './utils'
 import type { HighlightedPinData, StoredPinsPayload } from './utils'
 
+/** Stable empty list for Zustand selectors — never use `[]` inline or `?? []` (new reference each snapshot). */
+const EMPTY_PINS: Pin[] = []
+
 export { STORAGE_PINS_KEY } from './utils'
 
 export interface ShowPinsModeResult {
@@ -30,15 +33,23 @@ export interface ShowPinsModeResult {
 export function useShowPinsMode(enabled: boolean): ShowPinsModeResult {
   const highlightedRef = useRef<Map<Element, HighlightedPinData>>(new Map())
   const [highlightedPin, setHighlightedPin] = useState<Pin | null>(null)
+  const [resolvedArticleId, setResolvedArticleId] = useState<string | null>(null)
   const { openModal } = useUi()
 
-  const pins = usePinsStore((s) => s.pins)
   const fetchAll = usePinsStore((s) => s.fetchAll)
   const setPinsResults = usePinsStore((s) => s.setPinsResults)
   const pinsRefreshKey = usePinsStore((s) => s.pinsRefreshKey)
+  const results = usePinsStore((s) =>
+    resolvedArticleId != null
+      ? (s.pinsByArticleId[resolvedArticleId] ?? EMPTY_PINS)
+      : EMPTY_PINS,
+  )
+  const pinsPagination = usePinsStore((s) =>
+    resolvedArticleId ? s.pinsPaginationByArticleId[resolvedArticleId] : undefined,
+  )
 
-  const results = pins.results as Pin[]
-  const pinsCount = pins.count
+  const pinsCount =
+    resolvedArticleId != null ? (pinsPagination?.count ?? results.length) : 0
 
   const scrollToPin = (direction: 'next' | 'previous') => {
     if (results.length === 0) return
@@ -74,6 +85,7 @@ export function useShowPinsMode(enabled: boolean): ShowPinsModeResult {
 
   useEffect(() => {
     if (!enabled) {
+      setResolvedArticleId(null)
       removeAllOutlines()
       document.getElementById(PIN_STYLE_ID)?.remove()
       return
@@ -83,6 +95,7 @@ export function useShowPinsMode(enabled: boolean): ShowPinsModeResult {
 
     const run = async () => {
       setHighlightedPin(null)
+      setResolvedArticleId(null)
       const articleUrl = await getCurrentArticle(window.location.href)
       if (!articleUrl) return
 
@@ -91,16 +104,17 @@ export function useShowPinsMode(enabled: boolean): ShowPinsModeResult {
 
         if (cancelled) return
 
+        setResolvedArticleId(article.id)
         await fetchAll({ articleId: article.id })
         if (cancelled) return
 
-        const { pins: pinsData } = usePinsStore.getState()
-        savePinsToStorage(article.id, articleUrl, pinsData.results)
+        const list = usePinsStore.getState().getPins(article.id)
+        savePinsToStorage(article.id, articleUrl, list)
 
         removeAllOutlines()
         injectPinFlashStyles()
 
-        pinsData.results.forEach((pin: Pin) => {
+        list.forEach((pin: Pin) => {
           if (!pin.selector) return
           const el = findElementByXPath(pin.selector)
           if (el && el instanceof HTMLElement) {
@@ -117,7 +131,8 @@ export function useShowPinsMode(enabled: boolean): ShowPinsModeResult {
         try {
           const parsed = JSON.parse(raw) as StoredPinsPayload
           if (parsed?.pins && parsed.articleUrl === articleUrl) {
-            setPinsResults(parsed.pins)
+            setPinsResults(parsed.pins, parsed.articleId)
+            setResolvedArticleId(parsed.articleId)
             removeAllOutlines()
             injectPinFlashStyles()
             parsed.pins.forEach((pin: Pin) => {

@@ -7,4 +7,20 @@ export const styles = {
     height: '100%',
     width: '100%',
   },
+  header: {
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    p:'0px'
+  },
+  tabs: {
+    minHeight: '32px',
+    mb: 1,
+  },
+  tab: {
+    p: '0px',
+    minHeight: '32px',
+  },
 }

@@ -22,7 +22,7 @@ export const styles = {
     display: 'flex',
     gap: '8px',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'end',
   },
   highlightedPinActions: {
     display: 'flex',
