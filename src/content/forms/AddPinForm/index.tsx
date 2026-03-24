@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import z from 'zod'
 import { articlesApi } from '@/services/articlesApi'
 import { CreatePinRequest, pinsApi, type PinApiError } from '@/services/pinsApi'
-import { usePinsStore } from '@/stores'
+import { useAuthStore, usePinsStore } from '@/stores'
 import { StyledTextField } from '@/theme/components/StyledTextField'
 
 const STORAGE_URL_KEY = 'wiki-pin-selected-url'
@@ -27,6 +27,8 @@ const addPinSchema = z.object({
 type AddPinFormData = z.infer<typeof addPinSchema>
 
 const AddPinForm = () => {
+  const { user } = useAuthStore()
+  const isLoggedIn = !!user
   const [isArticleExists, setIsArticleExists] = useState(false)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -119,7 +121,10 @@ const AddPinForm = () => {
       {!isArticleExists && (
         <Alert severity="error">Add article first</Alert>
       )}
-      <Button type="submit" variant="contained" color="primary" disabled={!isArticleExists}>
+      {!isLoggedIn && (
+        <Alert severity="error">Login to add a pin</Alert>
+      )}
+      <Button type="submit" variant="contained" color="primary" disabled={!isArticleExists || !isLoggedIn}>
         Add Pin
       </Button>
     </Box>
