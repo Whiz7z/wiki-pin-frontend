@@ -70,15 +70,15 @@ export const InfiniteScroll = forwardRef<InfiniteScrollHandle, InfiniteScrollPro
     }, [onScroll])
 
     return (
-      <Box sx={styles.container(theme)}>
-        <Box sx={[styles.scrollContainer(theme), ...(Array.isArray(sx) ? sx : [sx])]} ref={containerRef}>
+      <Box sx={styles.container}>
+        <Box sx={[styles.scrollContainer(), ...(Array.isArray(sx) ? sx : [sx])]} ref={containerRef}>
           {children}
           <Box
             sx={{ height: '10px', width: '100%', visibility: 'hidden' }}
             data-infinite-sentinel=""
           />
           {isLoading && showLoader && (
-            <Box sx={styles.loaderContainer(theme)}>
+            <Box sx={styles.loaderContainer}>
               <CircularProgress size={24} />
             </Box>
           )}

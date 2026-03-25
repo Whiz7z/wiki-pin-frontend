@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { pinsApi, type Pin, type CreatePinRequest, type UpdatePinRequest, type GetPinsParams } from '../services/pinsApi'
 import { emptyPaginationState, WithPagination } from './types'
 
+/** Matches backend `DEFAULT_PAGE_SIZE` in wiki-pin-backend/lib/pagination.ts */
+export const PINS_PAGE_SIZE = 5
+
 function getErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message
   if (typeof error === 'object' && error !== null && 'message' in error && typeof (error as { message: string }).message === 'string') {
@@ -31,14 +34,20 @@ interface PinsState {
   pinsByArticleId: Record<string, Pin[]>
   pinsPaginationByArticleId: Record<string, ArticlePinsPagination>
   pinsLoadingByArticleId: Record<string, boolean>
+  /** True while appending the next page for an article (infinite scroll). */
+  pinsLoadingMoreByArticleId: Record<string, boolean>
   pinsErrorByArticleId: Record<string, string | null>
 
   // Actions
   fetchAll: (params?: GetPinsParams) => Promise<void>
-  /** Lazy-load (or refresh) pins for one article; uses limit 100. */
+  /** Lazy-load (or refresh) first page of pins for one article. */
   fetchPinsForArticle: (articleId: string) => Promise<void>
+  /** Append next page for an article using pagination `next` URL. */
+  fetchNextPageForArticle: (articleId: string) => Promise<void>
   /** Call after a pin is deleted so content-script ShowPinsMode re-runs and redraws. */
   triggerPinsRefresh: () => void
+  /** After dissociating from an article: drop this user's pins for that article from cache (server already deleted them). */
+  removeUserPinsForArticleFromCache: (articleId: string, userId: number) => void
   /** Set pins from cache/fallback (e.g. when API fails). Pass articleId when known (content script). */
   setPinsResults: (results: Pin[], articleId?: string) => void
   fetchById: (id: string) => Promise<void>
@@ -65,9 +74,34 @@ export const usePinsStore = create<PinsState>((set, get) => ({
   pinsByArticleId: {},
   pinsPaginationByArticleId: {},
   pinsLoadingByArticleId: {},
+  pinsLoadingMoreByArticleId: {},
   pinsErrorByArticleId: {},
 
   triggerPinsRefresh: () => set((s) => ({ pinsRefreshKey: s.pinsRefreshKey + 1 })),
+
+  removeUserPinsForArticleFromCache: (articleId: string, userId: number) => {
+    const shouldRemove = (p: Pin) => p.articleId === articleId && p.authorId === userId
+    set((state) => {
+      const filteredGlobal = state.pins.results.filter((p) => !shouldRemove(p))
+      const prevList = state.pinsByArticleId[articleId] ?? []
+      const filteredByArticle = prevList.filter((p) => !shouldRemove(p))
+      const prevPag = state.pinsPaginationByArticleId[articleId]
+      const currentPin =
+        state.currentPin && shouldRemove(state.currentPin) ? null : state.currentPin
+      return {
+        pins: { ...state.pins, results: filteredGlobal },
+        pinsByArticleId: { ...state.pinsByArticleId, [articleId]: filteredByArticle },
+        pinsPaginationByArticleId:
+          prevPag != null
+            ? {
+                ...state.pinsPaginationByArticleId,
+                [articleId]: { ...prevPag, count: filteredByArticle.length },
+              }
+            : state.pinsPaginationByArticleId,
+        currentPin,
+      }
+    })
+  },
 
   setPinsResults: (results: Pin[], articleId?: string) => {
     const aid = articleId ?? results[0]?.articleId
@@ -96,7 +130,7 @@ export const usePinsStore = create<PinsState>((set, get) => ({
       pinsErrorByArticleId: { ...s.pinsErrorByArticleId, [articleId]: null },
     }))
     try {
-      const page = await pinsApi.getAll({ articleId, limit: 100 })
+      const page = await pinsApi.getAll({ articleId, limit: PINS_PAGE_SIZE, offset: 0 })
       set((s) => ({
         pinsByArticleId: { ...s.pinsByArticleId, [articleId]: page.results },
         pinsPaginationByArticleId: {
@@ -120,10 +154,57 @@ export const usePinsStore = create<PinsState>((set, get) => ({
     }
   },
 
+  fetchNextPageForArticle: async (articleId: string) => {
+    const { next } = get().pinsPaginationByArticleId[articleId] ?? {}
+    if (!next) return
+    if (get().pinsLoadingMoreByArticleId[articleId]) return
+
+    set((s) => ({
+      pinsLoadingMoreByArticleId: { ...s.pinsLoadingMoreByArticleId, [articleId]: true },
+      pinsErrorByArticleId: { ...s.pinsErrorByArticleId, [articleId]: null },
+    }))
+    try {
+      const page = await pinsApi.getPage(next)
+      set((s) => {
+        const prev = s.pinsByArticleId[articleId] ?? []
+        const merged: Pin[] = []
+        const seen = new Set<string>()
+        for (const p of [...prev, ...page.results]) {
+          if (!seen.has(p.id)) {
+            seen.add(p.id)
+            merged.push(p)
+          }
+        }
+        return {
+          pinsByArticleId: { ...s.pinsByArticleId, [articleId]: merged },
+          pinsPaginationByArticleId: {
+            ...s.pinsPaginationByArticleId,
+            [articleId]: {
+              count: page.count,
+              next: page.next,
+              previous: page.previous,
+            },
+          },
+          pinsLoadingMoreByArticleId: { ...s.pinsLoadingMoreByArticleId, [articleId]: false },
+        }
+      })
+    } catch (error) {
+      set((s) => ({
+        pinsLoadingMoreByArticleId: { ...s.pinsLoadingMoreByArticleId, [articleId]: false },
+        pinsErrorByArticleId: {
+          ...s.pinsErrorByArticleId,
+          [articleId]: getErrorMessage(error, 'Failed to load more pins'),
+        },
+      }))
+    }
+  },
+
   fetchAll: async (params?: GetPinsParams) => {
     set({ isLoading: true, error: null })
     try {
-      const data = await pinsApi.getAll(params)
+      const limit = params?.limit ?? PINS_PAGE_SIZE
+      const offset = params?.offset ?? 0
+      const data = await pinsApi.getAll({ ...params, limit, offset })
       set((state) => {
         const base = {
           pins: { ...data, results: data.results },

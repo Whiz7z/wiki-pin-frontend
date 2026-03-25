@@ -13,14 +13,14 @@ import NavigateBeforeIcon from '@mui/icons-material/NavigateBefore'
 
 import type { Pin } from '@/services/pinsApi'
 import { useUi } from '@/content/context/UiContext'
-import { useAuthStore } from '@/stores'
+import EditAnchorSessionPanel from '../EditAnchorSession/EditAnchorSessionPanel'
 
 type ToolbarMode = 'normal' | 'select' | 'showPins'
 
 const MODE_ORDER: ToolbarMode[] = ['normal', 'select', 'showPins']
 
 const Toolbar = () => {
-  const { user } = useAuthStore()
+  const { user } = useAuthStoreContent()
   const isLoggedIn = !!user
   const [mode, setMode] = useState<ToolbarMode>('showPins')
   const enableElementSelection = mode === 'select'
@@ -59,6 +59,8 @@ const Toolbar = () => {
         </Typography>
       </Box>
       {enableElementSelection && isElementSelected && <AddPinForm />}
+
+      <EditAnchorSessionPanel />
       <Box sx={styles.buttonContainer}>
 
         {showPinsEnabled && (

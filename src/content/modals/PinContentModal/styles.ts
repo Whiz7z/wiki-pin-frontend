@@ -1,29 +1,29 @@
 import { Theme } from '@mui/material'
 
 export const styles = {
-  root: (theme: Theme) => ({
+  root: () => ({
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
     width: '100%',
   }),
-  header: (theme: Theme) => ({
+  header: () => ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
   }),
-  content: (theme: Theme) => ({
+  content: () => ({
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
   }),
-  actionsRow: (theme: Theme) => ({
+  actionsRow: () => ({
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
     mb: 1,
   }),
-  editDeleteRow: (theme: Theme) => ({
+  editDeleteRow: () => ({
     display: 'flex',
     width: '100%',
     justifyContent: 'space-between',
@@ -31,40 +31,40 @@ export const styles = {
     gap: '8px',
     mb: 1,
   }),
-  deleteRow: (theme: Theme) => ({
+  deleteRow: () => ({
     display: 'flex',
     gap: '8px',
     alignItems: 'center',
     justifyContent: 'flex-end',
   }),
-  titleField: (theme: Theme) => ({
+  titleField: () => ({
     marginBottom: '8px',
   }),
-  contentCard: (theme: Theme) => ({
+  contentCard: () => ({
     padding: '8px',
     maxHeight: '220px',
     overflowY: 'auto',
     scrollbarWidth: 'none',
     '&::-webkit-scrollbar': { display: 'none' },
   }),
-  sectionTitle: (theme: Theme) => ({
+  sectionTitle: () => ({
     fontWeight: 600,
   }),
-  commentsRoot: (theme: Theme) => ({
+  commentsRoot: () => ({
     display: 'flex',
     flexDirection: 'column',
     gap: '10px',
     marginTop: '8px',
   }),
-  addCommentForm: (theme: Theme) => ({
+  addCommentForm: () => ({
     display: 'flex',
     flexDirection: 'column',
     gap: '8px',
   }),
-  addCommentBtn: (theme: Theme) => ({
+  addCommentBtn: () => ({
     alignSelf: 'flex-end',
   }),
-  commentsListWrap: (theme: Theme) => ({
+  commentsListWrap: () => ({
     width: '100%',
     minHeight: 120,
     maxHeight: 260,
@@ -72,7 +72,7 @@ export const styles = {
     flexDirection: 'column',
     flex: 1,
   }),
-  commentsScrollSx: (theme: Theme) => ({
+  commentsScrollSx: () => ({
     maxHeight: '346px',
     overflowY: 'auto',
     scrollbarWidth: 'none',
@@ -85,7 +85,13 @@ export const styles = {
     borderRadius: '8px',
     backgroundColor: theme.palette.action.hover,
   }),
-  commentMeta: (theme: Theme) => ({
+  commentMeta: () => ({
     marginBottom: '4px',
+  }),
+  anchorSessionButtons: () => ({
+    display: 'flex',
+    marginBottom: 2,
+    gap: 1,
+    alignItems: 'center',
   }),
 }
