@@ -139,7 +139,8 @@ export const articlesApi = {
   },
 
   /**
-   * Delete an article (requires authentication)
+   * Remove the current user's association with an article (requires authentication).
+   * Deletes that user's pins on the article (and their comments); article and other users' pins remain.
    */
   delete: async (id: string): Promise<{ message: string }> => {
     return apiRequest<{ message: string }>(`/api/articles/${id}`, {

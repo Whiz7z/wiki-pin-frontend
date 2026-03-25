@@ -3,6 +3,7 @@ import { articlesApi, type Article, type CreateArticleRequest, type UpdateArticl
 import { getAuthUser } from '@/services/api'
 import { User } from '@/services/authApi'
 import { emptyPaginationState, WithPagination } from './types'
+import { usePinsStore } from './pinsStore'
 
 interface ArticlesState {
   articles: WithPagination<Article[]>
@@ -192,6 +193,11 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       await articlesApi.delete(id)
+      const user: User | null = (await getAuthUser()) as User | null
+      if (user?.id != null) {
+        usePinsStore.getState().removeUserPinsForArticleFromCache(id, user.id)
+      }
+      usePinsStore.getState().triggerPinsRefresh()
       set((state) => ({
         articles: { ...state.articles, results: state.articles.results.filter((a: Article) => a.id !== id) },
         currentArticle: state.currentArticle?.id === id ? null : state.currentArticle,
@@ -200,7 +206,7 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
     } catch (error) {
       set({
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Failed to delete article',
+        error: error instanceof Error ? error.message : 'Failed to remove article from your list',
       })
       throw error
     }
@@ -248,7 +254,11 @@ export const useArticlesStore = create<ArticlesState>((set, get) => ({
     set({ isLoading: true, error: null })
     try {
       await articlesApi.disassociate(articleId)
-      // Refresh article to get updated user associations
+      const user: User | null = (await getAuthUser()) as User | null
+      if (user?.id != null) {
+        usePinsStore.getState().removeUserPinsForArticleFromCache(articleId, user.id)
+      }
+      usePinsStore.getState().triggerPinsRefresh()
       await get().fetchById(articleId)
     } catch (error) {
       set({

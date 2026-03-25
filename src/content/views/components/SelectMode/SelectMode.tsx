@@ -2,7 +2,16 @@ import React, { useState, useRef, useEffect } from 'react'
 
 export const STORAGE_KEY = 'wiki-pin-selected-element'
 export const STORAGE_URL_KEY = 'wiki-pin-selected-url'
+export const STORAGE_ANCHOR_TEXT_KEY = 'wiki-pin-selected-anchor-text'
+
+const MAX_ANCHOR_TEXT_LENGTH = 32_000
 const HIGHLIGHT_OUTLINE = '2px solid #8B3A3A'
+
+export function getAnchorTextFromElement(element: Element): string {
+  const raw = element.textContent?.trim() ?? ''
+  if (raw.length <= MAX_ANCHOR_TEXT_LENGTH) return raw
+  return raw.slice(0, MAX_ANCHOR_TEXT_LENGTH)
+}
 
 export function getXPath(element: Element): string {
   if (element.id) {
@@ -49,6 +58,15 @@ export function findElementByXPath(xpath: string): Element | null {
   }
 }
 
+/**
+ * Distance from the top of the document to the element’s top edge (CSS pixels).
+ * `getBoundingClientRect().top + scrollY` is in layout/document space; browser zoom scales CSS pixels consistently for sorting.
+ */
+export function getElementDocumentYOffset(element: Element): number {
+  const rect = element.getBoundingClientRect()
+  return rect.top + window.scrollY
+}
+
 export interface UseElementSelectionResult {
   isElementSelected: boolean
   removeOutline: () => void
@@ -66,6 +84,7 @@ export function useElementSelection(enabled: boolean): UseElementSelectionResult
   const clearSelectedElement = () => {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(STORAGE_URL_KEY)
+    localStorage.removeItem(STORAGE_ANCHOR_TEXT_KEY)
   }
 
   const removeOutline = () => {
@@ -85,8 +104,10 @@ export function useElementSelection(enabled: boolean): UseElementSelectionResult
   const saveSelectedElement = (element: Element) => {
     try {
       const xpath = getXPath(element)
+      const anchorText = getAnchorTextFromElement(element)
       localStorage.setItem(STORAGE_KEY, xpath)
       localStorage.setItem(STORAGE_URL_KEY, window.location.href)
+      localStorage.setItem(STORAGE_ANCHOR_TEXT_KEY, anchorText)
       console.log('Saved selected element:', xpath)
     } catch (e) {
       console.error('Error saving selected element:', e)

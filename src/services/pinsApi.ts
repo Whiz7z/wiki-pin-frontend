@@ -12,7 +12,12 @@ export interface Article {
   id: string
   url: string
   title: string
+  wikipediaRevisionId?: string | null
+  wikipediaRevisionTimestamp?: string | null
+  wikipediaRevisionLastCheckedAt?: string | null
 }
+
+export type PinRelevance = 'active' | 'at_risk' | 'needs_reassignment' | 'unknown'
 
 export interface Pin {
   id: string
@@ -23,6 +28,12 @@ export interface Pin {
   authorId: number
   createdAt: string
   updatedAt: string
+  relevance?: PinRelevance | string
+  decayReason?: string | null
+  anchorTextHash?: string | null
+  lastAcknowledgedArticleRevisionId?: string | null
+  /** Document Y (px) for top-to-bottom ordering; from getBoundingClientRect().top + scrollY */
+  yOffset?: number | null
   author?: User
   article?: Article
   _count?: {
@@ -35,17 +46,28 @@ export interface CreatePinRequest {
   content: string
   selector: string
   articleId: string
+  anchorText?: string
+  yOffset?: number
 }
 
 export interface UpdatePinRequest {
   title?: string
   content?: string
   selector?: string
+  yOffset?: number | null
+}
+
+export interface ReanchorPinRequest {
+  currentText: string
+  newSelector?: string
+  /** Document Y for vertical ordering; set from new anchor element or current pin element. */
+  yOffset?: number | null
 }
 
 export interface GetPinsParams {
   articleId?: string
   authorId?: number
+  relevance?: string
   limit?: number
   offset?: number
 }
@@ -64,9 +86,10 @@ export const pinsApi = {
     const queryParams = new URLSearchParams()
     if (params?.articleId) queryParams.append('articleId', params.articleId)
     if (params?.authorId) queryParams.append('authorId', params.authorId.toString())
+    if (params?.relevance) queryParams.append('relevance', params.relevance)
     if (params?.limit) queryParams.append('limit', params.limit.toString())
     if (params?.offset) queryParams.append('offset', params.offset.toString())
-    
+
     const query = queryParams.toString()
     return apiRequest<WithPagination<Pin[]>>(`/api/pins${query ? `?${query}` : ''}`)
   },
@@ -115,5 +138,24 @@ export const pinsApi = {
       method: 'DELETE',
     })
   },
-}
 
+  /**
+   * Mark pin relevance active; does not change anchor hash or selector (author only).
+   */
+  refresh: async (id: string): Promise<Pin> => {
+    return apiRequest<Pin>(`/api/pins/${id}/refresh`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    })
+  },
+
+  /**
+   * Re-anchor pin: optional new XPath; updates anchor hash from currentText (author only).
+   */
+  reanchor: async (id: string, body: ReanchorPinRequest): Promise<Pin> => {
+    return apiRequest<Pin>(`/api/pins/${id}/reanchor`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    })
+  },
+}

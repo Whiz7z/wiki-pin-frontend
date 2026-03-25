@@ -2,11 +2,11 @@ import { useEffect } from 'react'
 import { useRouter } from './RouterContext'
 import { routes, getRouteByName } from './routes'
 import { CircularProgress, Box } from '@mui/material'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuthStoreContent } from '@/hooks/useAuthStoreContent'
 
 export const Router = () => {
   const { currentRoute, navigate } = useRouter()
-  const { accessToken, isLoading } = useAuth()
+  const { accessToken, isLoading } = useAuthStoreContent()
 
   // Handle route guards and redirects
   useEffect(() => {

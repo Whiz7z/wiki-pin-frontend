@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Box, Button, Card, CircularProgress, Link, Typography } from '@mui/material'
+import { Box, Button, Card, Chip, CircularProgress, Link, Typography } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { useRouter } from '@/popup/router'
@@ -9,10 +9,17 @@ import { useAuthStore, usePinsStore } from '@/stores'
 import { StyledTextField } from '@/theme/components/StyledTextField'
 import PinCommentSection from '@/popup/components/PinCommentSection'
 import { ConfirmDialog } from '@/components/ConfirmDialog'
+import {
+  decayReasonLabel,
+  relevanceChipColor,
+  relevanceShortLabel,
+} from '@/utils/pinRelevance'
+import { WIKI_PIN_ANCHOR_SESSION_KEY } from '@/utils/wikiPinAnchorSession'
 
 export default function PinPage() {
   const { params, navigate, goBack } = useRouter()
   const { user } = useAuthStore()
+  const isLoggedIn = !!user
   const {delete: deletePin} = usePinsStore()
   const pinId = params?.pinId
   const [pin, setPin] = useState<Pin | null>(null)
@@ -126,6 +133,35 @@ export default function PinPage() {
     }
   }
 
+  const openAnchorSession = async (mode: 'refresh' | 'reanchor') => {
+    if (!pin.article?.url) {
+      setError('Article URL is missing.')
+      return
+    }
+    setError(null)
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+        await chrome.storage.local.set({
+          [WIKI_PIN_ANCHOR_SESSION_KEY]: {
+            pinId: pin.id,
+            mode,
+            articleUrl: pin.article.url,
+          },
+        })
+      } else {
+        setError('Extension storage is not available.')
+        return
+      }
+      if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+        chrome.tabs.create({ url: pin.article.url })
+      } else {
+        setError('Cannot open a new tab from this context.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start anchor session')
+    }
+  }
+
   return (
     <Box sx={styles.root}>
       <Box sx={styles.headerRow}>
@@ -133,7 +169,7 @@ export default function PinPage() {
         <Button startIcon={<ArrowBackIcon />} onClick={goBack} sx={{ mb: 2 }}>
           Back
         </Button>
-        {isAuthor && (
+        {isAuthor && isLoggedIn && (
           <Box sx={styles.actionsRow}>
             {!isEditing ? (
               <>
@@ -184,11 +220,32 @@ export default function PinPage() {
       )}
 
       {pin.article && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        <Typography variant="body2" color="text.secondary" sx={styles.articleInfo}>
           Article:
           <Link href={pin.article.url} target="_blank" title={pin.article.url}> {pin.article.title}</Link>
-
+          <Chip
+            size="small"
+            label={relevanceShortLabel(pin.relevance)}
+            color={relevanceChipColor(pin.relevance)}
+            variant="outlined"
+          />
+          {decayReasonLabel(pin.decayReason) && (
+            <Typography variant="body2" color="text.secondary" sx={{ flex: '1 1 100%' }}>
+              {decayReasonLabel(pin.decayReason)}
+            </Typography>
+          )}
         </Typography>
+      )}
+
+      {isAuthor && isLoggedIn && pin.article && !isEditing && (
+        <Box sx={styles.anchorSessionButtons}>
+          <Button size="small" variant="outlined" onClick={() => void openAnchorSession('refresh')}>
+            Refresh relevance
+          </Button>
+          <Button size="small" variant="outlined" onClick={() => void openAnchorSession('reanchor')}>
+            Edit anchor
+          </Button>
+        </Box>
       )}
 
       <Card sx={styles.pinContent}>

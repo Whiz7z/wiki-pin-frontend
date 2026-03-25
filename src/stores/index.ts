@@ -1,7 +1,7 @@
 // Export all stores from a single entry point
 export { useAuthStore } from './authStore'
 export { useArticlesStore } from './articlesStore'
-export { usePinsStore } from './pinsStore'
+export { usePinsStore, PINS_PAGE_SIZE } from './pinsStore'
 export { useCommentsStore } from './commentsStore'
 
 // Export types

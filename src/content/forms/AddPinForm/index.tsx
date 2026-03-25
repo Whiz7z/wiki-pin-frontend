@@ -3,13 +3,17 @@ import { Alert, Box, Button } from '@mui/material'
 import React, { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import z from 'zod'
+import {
+  findElementByXPath,
+  getElementDocumentYOffset,
+  STORAGE_ANCHOR_TEXT_KEY,
+  STORAGE_KEY,
+  STORAGE_URL_KEY,
+} from '@/content/views/components/SelectMode/SelectMode'
 import { articlesApi } from '@/services/articlesApi'
 import { CreatePinRequest, pinsApi, type PinApiError } from '@/services/pinsApi'
 import { useAuthStore, usePinsStore } from '@/stores'
 import { StyledTextField } from '@/theme/components/StyledTextField'
-
-const STORAGE_URL_KEY = 'wiki-pin-selected-url'
-const STORAGE_ELEMENT_KEY = 'wiki-pin-selected-element'
 
 const styles = {
   root: {
@@ -33,7 +37,7 @@ const AddPinForm = () => {
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const { create, triggerPinsRefresh, clearError } = usePinsStore()
-  const { register, handleSubmit, formState: { errors }, setError, reset } = useForm<AddPinFormData>({
+  const { register, handleSubmit, formState: { errors, isLoading }, setError, reset } = useForm<AddPinFormData>({
     resolver: zodResolver(addPinSchema),
     mode: 'onBlur',
     defaultValues: {
@@ -47,17 +51,23 @@ const AddPinForm = () => {
     setSubmitError(null)
     clearError()
     const urlItem = localStorage.getItem(STORAGE_URL_KEY)
-    const selectorItem = localStorage.getItem(STORAGE_ELEMENT_KEY)
+    const selectorItem = localStorage.getItem(STORAGE_KEY)
+    const rawAnchor = localStorage.getItem(STORAGE_ANCHOR_TEXT_KEY)
+    const anchorText = rawAnchor?.trim()
     const url = new URL(urlItem || '')
     const articleUrl = url.origin + url.pathname
 
     try {
       const article = await articlesApi.getByUrl(articleUrl)
+      const anchorEl = selectorItem ? findElementByXPath(selectorItem) : null
+      const yOffset = anchorEl ? getElementDocumentYOffset(anchorEl) : undefined
       const pinData: CreatePinRequest = {
         title: data.title,
         content: data.content,
         selector: selectorItem || '',
         articleId: article.id || '',
+        ...(anchorText ? { anchorText } : {}),
+        ...(yOffset !== undefined ? { yOffset } : {}),
       }
       await create(pinData)
       reset()
@@ -124,7 +134,7 @@ const AddPinForm = () => {
       {!isLoggedIn && (
         <Alert severity="error">Login to add a pin</Alert>
       )}
-      <Button type="submit" variant="contained" color="primary" disabled={!isArticleExists || !isLoggedIn}>
+      <Button type="submit" variant="contained" color="primary" disabled={!isArticleExists || !isLoggedIn || isLoading}>
         Add Pin
       </Button>
     </Box>

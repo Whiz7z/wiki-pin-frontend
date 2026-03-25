@@ -6,6 +6,7 @@ import {
   AccordionSummary,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -19,11 +20,13 @@ import {
   Typography,
 } from '@mui/material'
 import EditIcon from '@mui/icons-material/Edit'
-import PushPinIcon from '@mui/icons-material/PushPin'
+import LinkIcon from '@mui/icons-material/Link';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
 import { useAuthStore, useArticlesStore, usePinsStore } from '@/stores'
 import { useRouter } from '@/popup/router'
+import { InfiniteScroll } from '@/popup/components/InfiniteScroll'
+import { relevanceChipColor, relevanceShortLabel } from '@/utils/pinRelevance'
 const styles = {
   root: {
     width: '100%',
@@ -86,12 +89,6 @@ const styles = {
     flexDirection: 'column',
     gap: 2,
   },
-  pinListContainer: {
-    width: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 0,
-  },
 }
 
 export default function ArticleItem({
@@ -103,15 +100,18 @@ export default function ArticleItem({
 }) {
   const { user } = useAuthStore()
   const { navigate } = useRouter()
-  const { delete: deleteArticle, updateUserTitle } = useArticlesStore()
+  const { delete: deleteArticle, updateUserTitle, associate: associateArticle, disassociate: disassociateArticle } = useArticlesStore()
   const fetchPinsForArticle = usePinsStore((s) => s.fetchPinsForArticle)
+  const fetchNextPageForArticle = usePinsStore((s) => s.fetchNextPageForArticle)
   const getPins = usePinsStore((s) => s.getPins)
   const pinsLoadingByArticleId = usePinsStore((s) => s.pinsLoadingByArticleId)
+  const pinsLoadingMoreByArticleId = usePinsStore((s) => s.pinsLoadingMoreByArticleId)
   const pinsErrorByArticleId = usePinsStore((s) => s.pinsErrorByArticleId)
   const getPaginationForArticle = usePinsStore((s) => s.getPaginationForArticle)
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isAssociating, setIsAssociating] = useState(false)
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [editTitleValue, setEditTitleValue] = useState('')
   const [isSavingTitle, setIsSavingTitle] = useState(false)
@@ -123,6 +123,7 @@ export default function ArticleItem({
   const pinsError = pinsErrorByArticleId[article.id]
   const pinPagination = getPaginationForArticle(article.id)
   const pinCountLabel = article._count?.pins ?? pinPagination?.count ?? pinsForArticle.length
+  const pinsLoadingMore = pinsLoadingMoreByArticleId[article.id] ?? false
 
   const handleAccordionChange = useCallback(
     (_: React.SyntheticEvent, expanded: boolean) => {
@@ -166,7 +167,7 @@ export default function ArticleItem({
   const handleDeleteConfirm = async () => {
     setIsDeleting(true)
     try {
-      await deleteArticle(article.id)
+      await disassociateArticle(article.id)
       setDeleteDialogOpen(false)
     } catch {
       // Store sets error; keep dialog open so user can retry or cancel
@@ -174,9 +175,21 @@ export default function ArticleItem({
       setIsDeleting(false)
     }
   }
+  const handleAssociateArticle = async () => {
+    setIsAssociating(true)
+    try {
+      await associateArticle(article.id)
+    } catch {
+      // Store sets error; keep dialog open so user can retry or cancel
+    } finally {
+      setIsAssociating(false)
+    }
+  }
 
-  const myPins = pinsForArticle.filter((pin) => pin.authorId === user?.id)
-  const otherPins = pinsForArticle.filter((pin) => pin.authorId !== user?.id)
+  const handleLoadMorePins = useCallback(() => {
+    if (!pinPagination?.next) return
+    void fetchNextPageForArticle(article.id)
+  }, [article.id, fetchNextPageForArticle, pinPagination?.next])
 
   return (
     <Box sx={styles.root}>
@@ -220,22 +233,24 @@ export default function ArticleItem({
             </IconButton>
           )}
           {isOwnArticle && !isEditingTitle && (
-            <IconButton onClick={handleDeleteClick} aria-label="Delete article" color="error" size="small">
+            <IconButton onClick={handleDeleteClick} aria-label="Remove article from your list" color="error" size="small">
               <DeleteOutlineIcon color="error" />
             </IconButton>
+          )}
+          {!isOwnArticle && (
+            <Button onClick={handleAssociateArticle} variant="outlined" size="small" endIcon={<LinkIcon />} disabled={isAssociating}>
+              {isAssociating ? 'Associating…' : 'Associate'}
+            </Button>
           )}
         </Box>
       </Box>
       <Box sx={styles.content}>
         <Accordion expanded={accordionExpanded} onChange={handleAccordionChange} sx={styles.accordion}>
-          <AccordionSummary>
+          <AccordionSummary expandIcon={<ArrowDropDownIcon />}>
             <Box sx={styles.accordionSummary}>
               <Typography variant="body1" title="Edit article">
                 ({pinCountLabel} pins)
               </Typography>
-              <IconButton>
-                <ArrowDropDownIcon />
-              </IconButton>
             </Box>
           </AccordionSummary>
           <AccordionDetails>
@@ -261,12 +276,19 @@ export default function ArticleItem({
                 </Typography>
               )}
               {!pinsLoading && !pinsError && pinsForArticle.length > 0 && (
-                <>
-                  <Box sx={styles.pinListContainer}>
-                    <Typography variant="body1" color="success">My pins</Typography>
-                    <Box sx={styles.pinList}>
-                      {myPins.map((pin) => (
-                        <Box key={pin.id}>
+                <InfiniteScroll
+                  onYEnd={handleLoadMorePins}
+                  isLoading={pinsLoadingMore}
+                  sx={{ maxHeight: 180 }}
+                >
+                  <Box sx={styles.pinList}>
+                    {pinsForArticle.map((pin) => {
+                      const isMine = user != null && pin.authorId === user.id
+                      return (
+                        <Box
+                          key={pin.id}
+                          sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.75, py: 0.25 }}
+                        >
                           <Typography
                             variant="body1"
                             component="button"
@@ -279,42 +301,30 @@ export default function ArticleItem({
                               textAlign: 'left',
                               font: 'inherit',
                               color: 'inherit',
+                              flex: '1 1 auto',
+                              minWidth: 0,
                               '&:hover': { textDecoration: 'underline' },
                             }}
                           >
                             {pin.title}
+                            {isMine && (
+                              <Typography component="span" variant="body2" color="text.secondary" sx={{ ml: 0.5 }}>
+                                (my)
+                              </Typography>
+                            )}
                           </Typography>
+                          <Chip
+                            size="small"
+                            label={relevanceShortLabel(pin.relevance)}
+                            color={relevanceChipColor(pin.relevance)}
+                            variant="outlined"
+                            sx={{ flexShrink: 0 }}
+                          />
                         </Box>
-                      ))}
-                    </Box>
+                      )
+                    })}
                   </Box>
-                  <Box sx={styles.pinListContainer}>
-                    <Typography variant="body1" color="error">Other pins</Typography>
-                    <Box sx={styles.pinList}>
-                      {otherPins.map((pin) => (
-                        <Box key={pin.id}>
-                          <Typography
-                            variant="body1"
-                            component="button"
-                            onClick={() => navigate('pin', { params: { pinId: pin.id } })}
-                            sx={{
-                              background: 'none',
-                              border: 'none',
-                              padding: 0,
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              font: 'inherit',
-                              color: 'inherit',
-                              '&:hover': { textDecoration: 'underline' },
-                            }}
-                          >
-                            {pin.title}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
-                  </Box>
-                </>
+                </InfiniteScroll>
               )}
             </Box>
           </AccordionDetails>
@@ -322,10 +332,10 @@ export default function ArticleItem({
       </Box>
 
       <Dialog open={deleteDialogOpen} onClose={handleDeleteDialogClose}>
-        <DialogTitle>Delete article?</DialogTitle>
+        <DialogTitle>Remove from your list?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete &quot;{displayTitle}&quot;? This will remove the article and all its pins. This action cannot be undone.
+            This removes &quot;{displayTitle}&quot; from your list and deletes your pins on this page. Other users&apos; pins are unchanged.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -333,7 +343,7 @@ export default function ArticleItem({
             Cancel
           </Button>
           <Button onClick={handleDeleteConfirm} color="error" variant="contained" disabled={isDeleting}>
-            {isDeleting ? 'Deleting…' : 'Delete'}
+            {isDeleting ? 'Removing…' : 'Remove'}
           </Button>
         </DialogActions>
       </Dialog>

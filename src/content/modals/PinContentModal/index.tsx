@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Typography, Button, Box, IconButton, Card } from '@mui/material'
+import { Typography, Button, Box, IconButton, Card, Chip } from '@mui/material'
 import type { Pin } from '@/services/pinsApi'
 import { styles } from './styles'
 import CloseIcon from '@mui/icons-material/Close'
@@ -9,6 +9,9 @@ import { pinsApi } from '@/services/pinsApi'
 import { StyledTextField } from '@/theme/components/StyledTextField'
 import { PinCommentsSection } from './PinCommentsSection'
 import { usePinsStore } from '@/stores'
+import { useAuthStoreContent } from '@/hooks/useAuthStoreContent'
+import { decayReasonLabel, relevanceChipColor, relevanceShortLabel } from '@/utils/pinRelevance'
+import { WIKI_PIN_ANCHOR_SESSION_KEY, articlePageMatchesSession } from '@/utils/wikiPinAnchorSession'
 
 export interface PinContentModalParams {
   pin: Pin
@@ -20,7 +23,8 @@ interface PinContentModalProps {
 }
 
 export function PinContentModal({ params, onClose }: PinContentModalProps) {
-  const { user } = useAuthStore()
+  const { user } = useAuthStoreContent()
+  const isLoggedIn = !!user
   const { delete: deletePin, triggerPinsRefresh } = usePinsStore()
   const [pin, setPin] = useState(params.pin)
   const isAuthor = !!user && pin.authorId === user.id
@@ -81,6 +85,37 @@ export function PinContentModal({ params, onClose }: PinContentModalProps) {
     }
   }
 
+  /** Content script cannot open tabs; we stay on this page, persist session, and close the modal so EditAnchorSessionPanel runs. */
+  const openAnchorSession = async (mode: 'refresh' | 'reanchor') => {
+    if (!pin.article?.url) {
+      setError('Article URL is missing.')
+      return
+    }
+    setError(null)
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage?.local) {
+        setError('Extension storage is not available.')
+        return
+      }
+      if (!articlePageMatchesSession(pin.article.url, window.location.href)) {
+        setError(
+          'This pin belongs to another article. Open that article in this tab, then try again.',
+        )
+        return
+      }
+      await chrome.storage.local.set({
+        [WIKI_PIN_ANCHOR_SESSION_KEY]: {
+          pinId: pin.id,
+          mode,
+          articleUrl: pin.article.url,
+        },
+      })
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start anchor session')
+    }
+  }
+
   return (
     <Box sx={styles.root}>
       <Box sx={styles.header}>
@@ -93,7 +128,7 @@ export function PinContentModal({ params, onClose }: PinContentModalProps) {
       </Box>
 
       <Box sx={styles.content}>
-        {isAuthor && (
+        {isAuthor && isLoggedIn && (
           <Box sx={styles.actionsRow}>
             {!isEditing ? (
               <Box sx={styles.editDeleteRow}>
@@ -101,18 +136,18 @@ export function PinContentModal({ params, onClose }: PinContentModalProps) {
                   Edit
                 </Button>
                 {!deleteConfirmOpen && (
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<DeleteOutlineIcon />}
-                  onClick={() => setDeleteConfirmOpen(true)}
-                >
-                  Delete
-                </Button>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    startIcon={<DeleteOutlineIcon />}
+                    onClick={() => setDeleteConfirmOpen(true)}
+                  >
+                    Delete
+                  </Button>
                 )}
                 {deleteConfirmOpen && (
                   <Box sx={styles.deleteRow}>
-                  <Button variant="outlined" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
+                    <Button variant="outlined" onClick={() => setDeleteConfirmOpen(false)}>Cancel</Button>
                     <Button variant="outlined"
                       color="error"
                       startIcon={<DeleteOutlineIcon />} onClick={handleDeleteConfirm} disabled={isDeleting}>Confirm Delete</Button>
@@ -147,7 +182,29 @@ export function PinContentModal({ params, onClose }: PinContentModalProps) {
             sx={styles.titleField}
           />
         ) : (
-          <Typography variant="h6">{pin.title}</Typography>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>{pin.title}
+            <Chip
+              size="small"
+              label={relevanceShortLabel(pin.relevance)}
+              color={relevanceChipColor(pin.relevance)}
+              variant="outlined"
+            />
+            {decayReasonLabel(pin.decayReason) && (
+              <Typography variant="body2" color="text.secondary" sx={{ flex: '1 1 100%' }}>
+                {decayReasonLabel(pin.decayReason)}
+              </Typography>
+            )}
+          </Typography>
+        )}
+        {isAuthor && isLoggedIn && pin.article && !isEditing && (
+          <Box sx={styles.anchorSessionButtons}>
+            <Button size="small" variant="outlined" onClick={() => void openAnchorSession('refresh')}>
+              Refresh relevance
+            </Button>
+            <Button size="small" variant="outlined" onClick={() => void openAnchorSession('reanchor')}>
+              Edit anchor
+            </Button>
+          </Box>
         )}
 
         <Card sx={styles.contentCard}>
@@ -170,7 +227,7 @@ export function PinContentModal({ params, onClose }: PinContentModalProps) {
         <PinCommentsSection pinId={pin.id} />
       </Box>
 
-      
+
     </Box>
   )
 }

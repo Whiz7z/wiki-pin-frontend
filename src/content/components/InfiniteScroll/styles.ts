@@ -1,15 +1,13 @@
-import { Theme } from '@mui/material'
-
 export const styles = {
-  container: (theme: Theme) => ({
+  container: {
     flex: 1,
     width: '100%',
     display: 'flex',
     flexDirection: 'column',
     minHeight: 0,
     position: 'relative',
-  }),
-  scrollContainer: (theme: Theme) => ({
+  },
+  scrollContainer: () => ({
     width: '100%',
     flex: 1,
     display: 'flex',
@@ -23,10 +21,9 @@ export const styles = {
       display: 'none',
     },
   }),
-  loaderContainer: (theme: Theme) => ({
+  loaderContainer: {
     display: 'flex',
     justifyContent: 'center',
     py: 2,
-  }),
+  },
 }
-

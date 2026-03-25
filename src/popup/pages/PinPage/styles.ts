@@ -34,4 +34,16 @@ export const styles = {
     },
     scrollbarWidth: 'none',
   },
+  anchorSessionButtons: {
+    display: 'flex',
+    marginBottom: 2,
+    gap: 1,
+    alignItems: 'center',
+  },
+  articleInfo: {
+    display: 'flex',
+    gap: 1,
+    alignItems: 'center',
+    marginBottom: 1,
+  },
 }
